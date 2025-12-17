@@ -1,0 +1,1432 @@
+<script>
+// ==================== VARIÁVEIS GLOBAIS ====================
+let clientes = [];
+let orcamentos = [];
+let ordensServico = [];
+let pecas = [];
+let configuracoes = {};
+let emailTemplates = [];
+
+// Contadores de itens nos formulários
+let contadorItemOrcamento = 0;
+let contadorItemOS = 0;
+
+// ==================== INICIALIZAÇÃO ====================
+
+document.addEventListener('DOMContentLoaded', function() {
+  inicializarSistema();
+});
+
+function inicializarSistema() {
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      carregarDados();
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro ao inicializar: ' + error.message, 'error');
+    })
+    .inicializarSistema();
+}
+
+function carregarDados() {
+  Promise.all([
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { clientes = data || []; resolve(); }).getClientes();
+    }),
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { orcamentos = data || []; resolve(); }).getOrcamentos();
+    }),
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { ordensServico = data || []; resolve(); }).getOrdensServico();
+    }),
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { pecas = data || []; resolve(); }).getPecas();
+    }),
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { configuracoes = data || {}; resolve(); }).getConfiguracoes();
+    }),
+    new Promise((resolve) => {
+      google.script.run.withSuccessHandler((data) => { emailTemplates = data || []; resolve(); }).getEmailTemplates();
+    })
+  ]).then(() => {
+    atualizarInterface();
+    hideLoading();
+    showToast('Sistema carregado com sucesso!', 'success');
+  }).catch((error) => {
+    hideLoading();
+    showToast('Erro ao carregar dados', 'error');
+  });
+}
+
+function sincronizarDados() {
+  showLoading();
+  carregarDados();
+}
+
+function atualizarInterface() {
+  atualizarBadges();
+  atualizarDashboard();
+  renderizarClientes();
+  renderizarOrcamentos();
+  renderizarOS();
+  renderizarPecas();
+  renderizarEmailTemplates();
+  carregarConfiguracoes();
+  popularSelectClientes();
+  popularSelectFormasPagamento();
+}
+
+// ==================== FUNÇÕES DE NAVEGAÇÃO ====================
+
+function showSection(sectionId) {
+  // Remover classe active de todas as seções e itens do menu
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  // Ativar seção selecionada
+  document.getElementById('section-' + sectionId).classList.add('active');
+  document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+
+  // Fechar sidebar em dispositivos móveis
+  if (window.innerWidth <= 992) {
+    document.getElementById('sidebar').classList.remove('show');
+  }
+
+  return false;
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('show');
+}
+
+// ==================== FUNÇÕES DE LOADING E TOAST ====================
+
+function showLoading() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+
+  const icons = {
+    success: 'fa-check-circle',
+    error: 'fa-times-circle',
+    warning: 'fa-exclamation-triangle',
+    info: 'fa-info-circle'
+  };
+
+  toast.innerHTML = `<i class="fas ${icons[type]}"></i> ${message}`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// ==================== FUNÇÕES DE MODAL ====================
+
+function abrirModal(modalId) {
+  document.getElementById(modalId).classList.add('show');
+}
+
+function fecharModal(modalId) {
+  document.getElementById(modalId).classList.remove('show');
+}
+
+// Fechar modal ao clicar fora
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal') && e.target.classList.contains('show')) {
+    e.target.classList.remove('show');
+  }
+});
+
+// ==================== DASHBOARD ====================
+
+function atualizarDashboard() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      document.getElementById('statClientes').textContent = data.clientes;
+      document.getElementById('statOrcPendentes').textContent = data.orcamentos.pendentes;
+      document.getElementById('statOSAndamento').textContent = data.ordensServico.emAndamento;
+      document.getElementById('statOSConcluidas').textContent = data.ordensServico.concluidas;
+      document.getElementById('statEstoqueBaixo').textContent = data.estoque.estoqueBaixo;
+      document.getElementById('statTotalMes').textContent = 'R$ ' + formatarMoeda(data.financeiro.totalMes);
+
+      // Renderizar últimos orçamentos
+      const tbodyOrc = document.querySelector('#tabelaUltimosOrcamentos tbody');
+      tbodyOrc.innerHTML = '';
+      data.ultimosOrcamentos.forEach(orc => {
+        tbodyOrc.innerHTML += `
+          <tr>
+            <td>${orc.Numero}</td>
+            <td>${orc.ClienteNome}</td>
+            <td>${orc.DataCriacao}</td>
+            <td>R$ ${formatarMoeda(orc.TotalGeral)}</td>
+            <td>${getStatusBadge(orc.Status)}</td>
+          </tr>
+        `;
+      });
+
+      // Renderizar últimas OS
+      const tbodyOS = document.querySelector('#tabelaUltimasOS tbody');
+      tbodyOS.innerHTML = '';
+      data.ultimasOS.forEach(os => {
+        tbodyOS.innerHTML += `
+          <tr>
+            <td>${os.Numero}</td>
+            <td>${os.ClienteNome}</td>
+            <td>${os.DataCriacao}</td>
+            <td>R$ ${formatarMoeda(os.TotalGeral)}</td>
+            <td>${getStatusBadge(os.Status)}</td>
+          </tr>
+        `;
+      });
+    })
+    .getDashboardData();
+}
+
+function atualizarBadges() {
+  document.getElementById('badgeClientes').textContent = clientes.length;
+  document.getElementById('badgeOrcamentos').textContent = orcamentos.filter(o => o.Status === 'Pendente').length;
+  document.getElementById('badgeOS').textContent = ordensServico.filter(os => os.Status === 'Em Andamento').length;
+  document.getElementById('badgeEstoque').textContent = pecas.filter(p => p.EstoqueAtual <= p.EstoqueMinimo).length;
+}
+
+function getStatusBadge(status) {
+  const statusClasses = {
+    'Pendente': 'status-pendente',
+    'Aprovado': 'status-aprovado',
+    'Cancelado': 'status-cancelado',
+    'Em Andamento': 'status-andamento',
+    'Concluída': 'status-concluida',
+    'Cancelada': 'status-cancelado'
+  };
+
+  return `<span class="status ${statusClasses[status] || ''}">${status}</span>`;
+}
+
+// ==================== CLIENTES ====================
+
+function renderizarClientes() {
+  const tbody = document.querySelector('#tabelaClientes tbody');
+  tbody.innerHTML = '';
+
+  clientes.forEach(cliente => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${cliente.Nome}</td>
+        <td>${cliente.CPF_CNPJ || '-'}</td>
+        <td>${cliente.Telefone}</td>
+        <td>${cliente.Email || '-'}</td>
+        <td>${cliente.Cidade || '-'}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-primary btn-action" onclick="editarCliente(${cliente.ID})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-danger btn-action" onclick="confirmarExclusaoCliente(${cliente.ID})" title="Excluir">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function filtrarClientes() {
+  const busca = document.getElementById('buscaCliente').value.toLowerCase();
+  const linhas = document.querySelectorAll('#tabelaClientes tbody tr');
+
+  linhas.forEach(linha => {
+    const texto = linha.textContent.toLowerCase();
+    linha.style.display = texto.includes(busca) ? '' : 'none';
+  });
+}
+
+function abrirModalCliente(id = null) {
+  limparFormCliente();
+  document.getElementById('modalClienteTitulo').innerHTML = '<i class="fas fa-user-plus"></i> ' + (id ? 'Editar Cliente' : 'Novo Cliente');
+  abrirModal('modalCliente');
+}
+
+function limparFormCliente() {
+  document.getElementById('formCliente').reset();
+  document.getElementById('clienteId').value = '';
+}
+
+function editarCliente(id) {
+  const cliente = clientes.find(c => c.ID == id);
+  if (!cliente) return;
+
+  document.getElementById('clienteId').value = cliente.ID;
+  document.getElementById('clienteNome').value = cliente.Nome;
+  document.getElementById('clienteCpfCnpj').value = cliente.CPF_CNPJ || '';
+  document.getElementById('clienteTelefone').value = cliente.Telefone;
+  document.getElementById('clienteEmail').value = cliente.Email || '';
+  document.getElementById('clienteEndereco').value = cliente.Endereco || '';
+  document.getElementById('clienteCidade').value = cliente.Cidade || '';
+  document.getElementById('clienteEstado').value = cliente.Estado || '';
+  document.getElementById('clienteCep').value = cliente.CEP || '';
+  document.getElementById('clienteObservacoes').value = cliente.Observacoes || '';
+
+  document.getElementById('modalClienteTitulo').innerHTML = '<i class="fas fa-user-edit"></i> Editar Cliente';
+  abrirModal('modalCliente');
+}
+
+function salvarClienteForm() {
+  const dados = {
+    ID: document.getElementById('clienteId').value || null,
+    Nome: document.getElementById('clienteNome').value,
+    CPF_CNPJ: document.getElementById('clienteCpfCnpj').value,
+    Telefone: document.getElementById('clienteTelefone').value,
+    Email: document.getElementById('clienteEmail').value,
+    Endereco: document.getElementById('clienteEndereco').value,
+    Cidade: document.getElementById('clienteCidade').value,
+    Estado: document.getElementById('clienteEstado').value,
+    CEP: document.getElementById('clienteCep').value,
+    Observacoes: document.getElementById('clienteObservacoes').value
+  };
+
+  if (!dados.Nome || !dados.Telefone) {
+    showToast('Preencha os campos obrigatórios!', 'warning');
+    return;
+  }
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalCliente');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarCliente(dados);
+}
+
+function confirmarExclusaoCliente(id) {
+  if (confirm('Tem certeza que deseja excluir este cliente?')) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          showToast(result.message, 'success');
+          sincronizarDados();
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .excluirCliente(id);
+  }
+}
+
+function popularSelectClientes() {
+  const selects = ['orcamentoClienteId', 'osClienteId'];
+
+  selects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const valorAtual = select.value;
+    select.innerHTML = '<option value="">Selecione...</option>';
+
+    clientes.forEach(cliente => {
+      select.innerHTML += `<option value="${cliente.ID}">${cliente.Nome}</option>`;
+    });
+
+    if (valorAtual) select.value = valorAtual;
+  });
+}
+
+function preencherDadosCliente(tipo) {
+  const clienteId = document.getElementById(tipo + 'ClienteId').value;
+  const cliente = clientes.find(c => c.ID == clienteId);
+
+  const infoDiv = document.getElementById(tipo + 'ClienteInfo');
+  if (!cliente) {
+    infoDiv.style.display = 'none';
+    return;
+  }
+
+  infoDiv.style.display = 'block';
+  document.getElementById(tipo + 'ClienteEmail').textContent = cliente.Email || 'Não informado';
+  document.getElementById(tipo + 'ClienteTelefone').textContent = cliente.Telefone;
+
+  if (document.getElementById(tipo + 'ClienteEndereco')) {
+    document.getElementById(tipo + 'ClienteEndereco').textContent =
+      [cliente.Endereco, cliente.Cidade, cliente.Estado].filter(Boolean).join(', ') || 'Não informado';
+  }
+}
+
+// ==================== ORÇAMENTOS ====================
+
+function renderizarOrcamentos() {
+  const tbody = document.querySelector('#tabelaOrcamentos tbody');
+  tbody.innerHTML = '';
+
+  orcamentos.forEach(orc => {
+    let acoes = `
+      <button class="btn btn-sm btn-primary btn-action" onclick="visualizarOrcamento(${orc.ID})" title="Visualizar">
+        <i class="fas fa-eye"></i>
+      </button>
+    `;
+
+    if (orc.Status === 'Pendente') {
+      acoes += `
+        <button class="btn btn-sm btn-success btn-action" onclick="abrirModalAprovar(${orc.ID})" title="Aprovar">
+          <i class="fas fa-check"></i>
+        </button>
+        <button class="btn btn-sm btn-warning btn-action" onclick="editarOrcamento(${orc.ID})" title="Editar">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(${orc.ID}, 'ORCAMENTO')" title="Cancelar">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${orc.Numero}</strong></td>
+        <td>${orc.ClienteNome}</td>
+        <td>${orc.DataCriacao}</td>
+        <td>${orc.DataValidade}</td>
+        <td>R$ ${formatarMoeda(orc.TotalGeral)}</td>
+        <td>${getStatusBadge(orc.Status)}</td>
+        <td><div class="btn-group">${acoes}</div></td>
+      </tr>
+    `;
+  });
+}
+
+function filtrarOrcamentos() {
+  const busca = document.getElementById('buscaOrcamento').value.toLowerCase();
+  const status = document.getElementById('filtroStatusOrc').value;
+  const linhas = document.querySelectorAll('#tabelaOrcamentos tbody tr');
+
+  linhas.forEach(linha => {
+    const texto = linha.textContent.toLowerCase();
+    const statusLinha = linha.querySelector('.status')?.textContent || '';
+
+    const matchBusca = texto.includes(busca);
+    const matchStatus = !status || statusLinha === status;
+
+    linha.style.display = matchBusca && matchStatus ? '' : 'none';
+  });
+}
+
+function abrirModalOrcamento() {
+  limparFormOrcamento();
+  popularSelectClientes();
+  popularSelectFormasPagamento();
+  document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Novo Orçamento';
+  document.getElementById('orcamentoGarantia').value = configuracoes.GARANTIA_PADRAO || '90 dias';
+  abrirModal('modalOrcamento');
+}
+
+function limparFormOrcamento() {
+  document.getElementById('formOrcamento').reset();
+  document.getElementById('orcamentoId').value = '';
+  document.getElementById('orcamentoClienteInfo').style.display = 'none';
+  document.querySelector('#tabelaItensOrcamento tbody').innerHTML = '';
+  document.getElementById('orcamentoTotalPecas').value = '0,00';
+  document.getElementById('orcamentoTotalMaoObra').value = '0,00';
+  document.getElementById('orcamentoTotalGeral').value = '0,00';
+  contadorItemOrcamento = 0;
+}
+
+function editarOrcamento(id) {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(orc) {
+      hideLoading();
+      if (!orc) {
+        showToast('Orçamento não encontrado!', 'error');
+        return;
+      }
+
+      document.getElementById('orcamentoId').value = orc.ID;
+      document.getElementById('orcamentoClienteId').value = orc.ClienteID;
+      preencherDadosCliente('orcamento');
+      document.getElementById('orcamentoDescricao').value = orc.Descricao || '';
+      document.getElementById('orcamentoDesconto').value = orc.Desconto || 0;
+      document.getElementById('orcamentoGarantia').value = orc.Garantia || '';
+      document.getElementById('orcamentoFormaPagamento').value = orc.FormaPagamento || '';
+      document.getElementById('orcamentoObservacoes').value = orc.Observacoes || '';
+
+      // Carregar itens
+      const tbody = document.querySelector('#tabelaItensOrcamento tbody');
+      tbody.innerHTML = '';
+      contadorItemOrcamento = 0;
+
+      if (orc.Itens) {
+        orc.Itens.forEach(item => {
+          adicionarLinhaItemOrcamento(item.Tipo, item.PecaID, item.Descricao, item.Quantidade, item.PrecoUnitario);
+        });
+      }
+
+      calcularTotalOrcamento();
+      document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Orçamento';
+      abrirModal('modalOrcamento');
+    })
+    .getOrcamentoById(id);
+}
+
+function adicionarItemOrcamento(tipo) {
+  if (tipo === 'peca') {
+    abrirModalSelecionarPeca('orcamento');
+  } else {
+    adicionarLinhaItemOrcamento('Servico', '', '', 1, 0);
+  }
+}
+
+function adicionarLinhaItemOrcamento(tipo, pecaId, descricao, quantidade, precoUnit) {
+  contadorItemOrcamento++;
+  const tbody = document.querySelector('#tabelaItensOrcamento tbody');
+
+  const tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peça</span>' : '<span class="status status-andamento">Serviço</span>';
+
+  tbody.innerHTML += `
+    <tr id="itemOrc${contadorItemOrcamento}" data-tipo="${tipo}" data-peca-id="${pecaId || ''}">
+      <td>${tipoLabel}</td>
+      <td><input type="text" class="form-control" value="${descricao}" onchange="calcularTotalOrcamento()"></td>
+      <td style="width:80px"><input type="number" class="form-control" value="${quantidade}" min="1" onchange="calcularTotalOrcamento()"></td>
+      <td style="width:120px"><input type="number" class="form-control" value="${precoUnit}" step="0.01" onchange="calcularTotalOrcamento()"></td>
+      <td style="width:120px"><input type="text" class="form-control" value="${formatarMoeda(quantidade * precoUnit)}" readonly></td>
+      <td style="width:50px">
+        <button class="btn btn-sm btn-danger btn-action" onclick="removerItemOrcamento(${contadorItemOrcamento})">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `;
+
+  calcularTotalOrcamento();
+}
+
+function removerItemOrcamento(id) {
+  document.getElementById('itemOrc' + id).remove();
+  calcularTotalOrcamento();
+}
+
+function calcularTotalOrcamento() {
+  let totalPecas = 0;
+  let totalMaoObra = 0;
+
+  document.querySelectorAll('#tabelaItensOrcamento tbody tr').forEach(tr => {
+    const tipo = tr.dataset.tipo;
+    const inputs = tr.querySelectorAll('input');
+    const qtd = parseFloat(inputs[1].value) || 0;
+    const preco = parseFloat(inputs[2].value) || 0;
+    const total = qtd * preco;
+
+    inputs[3].value = formatarMoeda(total);
+
+    if (tipo === 'Peca') {
+      totalPecas += total;
+    } else {
+      totalMaoObra += total;
+    }
+  });
+
+  const desconto = parseFloat(document.getElementById('orcamentoDesconto').value) || 0;
+  const totalGeral = totalPecas + totalMaoObra - desconto;
+
+  document.getElementById('orcamentoTotalPecas').value = formatarMoeda(totalPecas);
+  document.getElementById('orcamentoTotalMaoObra').value = formatarMoeda(totalMaoObra);
+  document.getElementById('orcamentoTotalGeral').value = formatarMoeda(totalGeral);
+}
+
+function salvarOrcamentoForm() {
+  const clienteId = document.getElementById('orcamentoClienteId').value;
+  if (!clienteId) {
+    showToast('Selecione um cliente!', 'warning');
+    return;
+  }
+
+  const descricao = document.getElementById('orcamentoDescricao').value;
+  if (!descricao) {
+    showToast('Preencha a descrição do serviço!', 'warning');
+    return;
+  }
+
+  // Coletar itens
+  const itens = [];
+  document.querySelectorAll('#tabelaItensOrcamento tbody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    itens.push({
+      Tipo: tr.dataset.tipo,
+      PecaID: tr.dataset.pecaId || '',
+      Descricao: inputs[0].value,
+      Quantidade: parseFloat(inputs[1].value) || 0,
+      PrecoUnitario: parseFloat(inputs[2].value) || 0,
+      PrecoTotal: parseMoeda(inputs[3].value)
+    });
+  });
+
+  const dados = {
+    ID: document.getElementById('orcamentoId').value || null,
+    ClienteID: clienteId,
+    Descricao: descricao,
+    TotalPecas: parseMoeda(document.getElementById('orcamentoTotalPecas').value),
+    TotalMaoObra: parseMoeda(document.getElementById('orcamentoTotalMaoObra').value),
+    Desconto: parseFloat(document.getElementById('orcamentoDesconto').value) || 0,
+    TotalGeral: parseMoeda(document.getElementById('orcamentoTotalGeral').value),
+    Garantia: document.getElementById('orcamentoGarantia').value,
+    FormaPagamento: document.getElementById('orcamentoFormaPagamento').value,
+    Observacoes: document.getElementById('orcamentoObservacoes').value,
+    Itens: itens,
+    enviarEmail: document.getElementById('orcamentoEnviarEmail').checked
+  };
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalOrcamento');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarOrcamento(dados);
+}
+
+function abrirModalAprovar(id) {
+  document.getElementById('aprovarOrcamentoId').value = id;
+  abrirModal('modalAprovarOrcamento');
+}
+
+function confirmarAprovacao() {
+  const id = document.getElementById('aprovarOrcamentoId').value;
+  const dataPrevista = document.getElementById('aprovarDataPrevista').value;
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalAprovarOrcamento');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .aprovarOrcamento(id, dataPrevista);
+}
+
+function abrirModalCancelar(id, tipo) {
+  document.getElementById('cancelarId').value = id;
+  document.getElementById('cancelarTipo').value = tipo;
+  document.getElementById('cancelarMotivo').value = '';
+  abrirModal('modalCancelar');
+}
+
+function confirmarCancelamento() {
+  const id = document.getElementById('cancelarId').value;
+  const tipo = document.getElementById('cancelarTipo').value;
+  const motivo = document.getElementById('cancelarMotivo').value;
+
+  if (!motivo) {
+    showToast('Informe o motivo do cancelamento!', 'warning');
+    return;
+  }
+
+  showLoading();
+
+  const funcao = tipo === 'ORCAMENTO' ? 'cancelarOrcamento' : 'cancelarOrdemServico';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalCancelar');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    [funcao](id, motivo);
+}
+
+function visualizarOrcamento(id) {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(orc) {
+      hideLoading();
+      if (!orc) {
+        showToast('Orçamento não encontrado!', 'error');
+        return;
+      }
+
+      let itensHtml = '';
+      if (orc.Itens && orc.Itens.length > 0) {
+        itensHtml = '<table class="table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
+        orc.Itens.forEach(item => {
+          itensHtml += `<tr><td>${item.Descricao}</td><td>${item.Quantidade}</td><td>R$ ${formatarMoeda(item.PrecoUnitario)}</td><td>R$ ${formatarMoeda(item.PrecoTotal)}</td></tr>`;
+        });
+        itensHtml += '</tbody></table>';
+      }
+
+      document.getElementById('conteudoDocumento').innerHTML = `
+        <div style="text-align:center; margin-bottom:20px;">
+          <h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ${configuracoes.EMPRESA_NOME || 'Refrigeração Campo Frio'}</h2>
+          <p>${configuracoes.EMPRESA_ENDERECO || ''}</p>
+          <p>${configuracoes.EMPRESA_TELEFONE || ''} | ${configuracoes.EMPRESA_EMAIL || ''}</p>
+        </div>
+        <hr>
+        <h3>ORÇAMENTO ${orc.Numero}</h3>
+        <div class="info-grid">
+          <div class="info-item"><label>Data</label><span>${orc.DataCriacao}</span></div>
+          <div class="info-item"><label>Validade</label><span>${orc.DataValidade}</span></div>
+          <div class="info-item"><label>Cliente</label><span>${orc.ClienteNome}</span></div>
+          <div class="info-item"><label>Status</label><span>${orc.Status}</span></div>
+        </div>
+        <h4>Descrição</h4>
+        <p>${orc.Descricao}</p>
+        <h4>Itens</h4>
+        ${itensHtml}
+        <div class="info-grid">
+          <div class="info-item"><label>Total Peças</label><span>R$ ${formatarMoeda(orc.TotalPecas)}</span></div>
+          <div class="info-item"><label>Total Mão de Obra</label><span>R$ ${formatarMoeda(orc.TotalMaoObra)}</span></div>
+          <div class="info-item"><label>Desconto</label><span>R$ ${formatarMoeda(orc.Desconto)}</span></div>
+          <div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ${formatarMoeda(orc.TotalGeral)}</span></div>
+        </div>
+        <p><strong>Garantia:</strong> ${orc.Garantia || 'Não informada'}</p>
+        <p><strong>Forma de Pagamento:</strong> ${orc.FormaPagamento || 'A combinar'}</p>
+        ${orc.Observacoes ? `<p><strong>Observações:</strong> ${orc.Observacoes}</p>` : ''}
+      `;
+
+      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Orçamento ' + orc.Numero;
+      abrirModal('modalVisualizarDoc');
+    })
+    .getOrcamentoById(id);
+}
+
+// ==================== ORDENS DE SERVIÇO ====================
+
+function renderizarOS() {
+  const tbody = document.querySelector('#tabelaOS tbody');
+  tbody.innerHTML = '';
+
+  ordensServico.forEach(os => {
+    let acoes = `
+      <button class="btn btn-sm btn-primary btn-action" onclick="visualizarOS(${os.ID})" title="Visualizar">
+        <i class="fas fa-eye"></i>
+      </button>
+    `;
+
+    if (os.Status === 'Em Andamento') {
+      acoes += `
+        <button class="btn btn-sm btn-success btn-action" onclick="abrirModalConcluir(${os.ID})" title="Concluir">
+          <i class="fas fa-check-double"></i>
+        </button>
+        <button class="btn btn-sm btn-warning btn-action" onclick="editarOS(${os.ID})" title="Editar">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(${os.ID}, 'OS')" title="Cancelar">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${os.Numero}</strong></td>
+        <td>${os.ClienteNome}</td>
+        <td>${os.DataCriacao}</td>
+        <td>${os.DataPrevista || '-'}</td>
+        <td>R$ ${formatarMoeda(os.TotalGeral)}</td>
+        <td>${getStatusBadge(os.Status)}</td>
+        <td><div class="btn-group">${acoes}</div></td>
+      </tr>
+    `;
+  });
+}
+
+function filtrarOS() {
+  const busca = document.getElementById('buscaOS').value.toLowerCase();
+  const status = document.getElementById('filtroStatusOS').value;
+  const linhas = document.querySelectorAll('#tabelaOS tbody tr');
+
+  linhas.forEach(linha => {
+    const texto = linha.textContent.toLowerCase();
+    const statusLinha = linha.querySelector('.status')?.textContent || '';
+
+    const matchBusca = texto.includes(busca);
+    const matchStatus = !status || statusLinha === status;
+
+    linha.style.display = matchBusca && matchStatus ? '' : 'none';
+  });
+}
+
+function abrirModalOS() {
+  limparFormOS();
+  popularSelectClientes();
+  popularSelectFormasPagamento();
+  document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-tools"></i> Nova Ordem de Serviço';
+  document.getElementById('osGarantia').value = configuracoes.GARANTIA_PADRAO || '90 dias';
+  abrirModal('modalOS');
+}
+
+function limparFormOS() {
+  document.getElementById('formOS').reset();
+  document.getElementById('osId').value = '';
+  document.getElementById('osClienteInfo').style.display = 'none';
+  document.querySelector('#tabelaItensOS tbody').innerHTML = '';
+  document.getElementById('osTotalPecas').value = '0,00';
+  document.getElementById('osTotalMaoObra').value = '0,00';
+  document.getElementById('osTotalGeral').value = '0,00';
+  contadorItemOS = 0;
+}
+
+function editarOS(id) {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(os) {
+      hideLoading();
+      if (!os) {
+        showToast('OS não encontrada!', 'error');
+        return;
+      }
+
+      document.getElementById('osId').value = os.ID;
+      document.getElementById('osClienteId').value = os.ClienteID;
+      preencherDadosCliente('os');
+      document.getElementById('osDataPrevista').value = os.DataPrevista ? formatarDataInput(os.DataPrevista) : '';
+      document.getElementById('osTecnico').value = os.Tecnico || '';
+      document.getElementById('osDescricao').value = os.Descricao || '';
+      document.getElementById('osDesconto').value = os.Desconto || 0;
+      document.getElementById('osGarantia').value = os.Garantia || '';
+      document.getElementById('osFormaPagamento').value = os.FormaPagamento || '';
+      document.getElementById('osObservacoes').value = os.Observacoes || '';
+
+      // Carregar itens
+      const tbody = document.querySelector('#tabelaItensOS tbody');
+      tbody.innerHTML = '';
+      contadorItemOS = 0;
+
+      if (os.Itens) {
+        os.Itens.forEach(item => {
+          adicionarLinhaItemOS(item.Tipo, item.PecaID, item.Descricao, item.Quantidade, item.PrecoUnitario);
+        });
+      }
+
+      calcularTotalOS();
+      document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Ordem de Serviço';
+      abrirModal('modalOS');
+    })
+    .getOrdemServicoById(id);
+}
+
+function adicionarItemOS(tipo) {
+  if (tipo === 'peca') {
+    abrirModalSelecionarPeca('os');
+  } else {
+    adicionarLinhaItemOS('Servico', '', '', 1, 0);
+  }
+}
+
+function adicionarLinhaItemOS(tipo, pecaId, descricao, quantidade, precoUnit) {
+  contadorItemOS++;
+  const tbody = document.querySelector('#tabelaItensOS tbody');
+
+  const tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peça</span>' : '<span class="status status-andamento">Serviço</span>';
+
+  tbody.innerHTML += `
+    <tr id="itemOS${contadorItemOS}" data-tipo="${tipo}" data-peca-id="${pecaId || ''}">
+      <td>${tipoLabel}</td>
+      <td><input type="text" class="form-control" value="${descricao}" onchange="calcularTotalOS()"></td>
+      <td style="width:80px"><input type="number" class="form-control" value="${quantidade}" min="1" onchange="calcularTotalOS()"></td>
+      <td style="width:120px"><input type="number" class="form-control" value="${precoUnit}" step="0.01" onchange="calcularTotalOS()"></td>
+      <td style="width:120px"><input type="text" class="form-control" value="${formatarMoeda(quantidade * precoUnit)}" readonly></td>
+      <td style="width:50px">
+        <button class="btn btn-sm btn-danger btn-action" onclick="removerItemOS(${contadorItemOS})">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `;
+
+  calcularTotalOS();
+}
+
+function removerItemOS(id) {
+  document.getElementById('itemOS' + id).remove();
+  calcularTotalOS();
+}
+
+function calcularTotalOS() {
+  let totalPecas = 0;
+  let totalMaoObra = 0;
+
+  document.querySelectorAll('#tabelaItensOS tbody tr').forEach(tr => {
+    const tipo = tr.dataset.tipo;
+    const inputs = tr.querySelectorAll('input');
+    const qtd = parseFloat(inputs[1].value) || 0;
+    const preco = parseFloat(inputs[2].value) || 0;
+    const total = qtd * preco;
+
+    inputs[3].value = formatarMoeda(total);
+
+    if (tipo === 'Peca') {
+      totalPecas += total;
+    } else {
+      totalMaoObra += total;
+    }
+  });
+
+  const desconto = parseFloat(document.getElementById('osDesconto').value) || 0;
+  const totalGeral = totalPecas + totalMaoObra - desconto;
+
+  document.getElementById('osTotalPecas').value = formatarMoeda(totalPecas);
+  document.getElementById('osTotalMaoObra').value = formatarMoeda(totalMaoObra);
+  document.getElementById('osTotalGeral').value = formatarMoeda(totalGeral);
+}
+
+function salvarOSForm() {
+  const clienteId = document.getElementById('osClienteId').value;
+  if (!clienteId) {
+    showToast('Selecione um cliente!', 'warning');
+    return;
+  }
+
+  const descricao = document.getElementById('osDescricao').value;
+  if (!descricao) {
+    showToast('Preencha a descrição do serviço!', 'warning');
+    return;
+  }
+
+  // Coletar itens
+  const itens = [];
+  document.querySelectorAll('#tabelaItensOS tbody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    itens.push({
+      Tipo: tr.dataset.tipo,
+      PecaID: tr.dataset.pecaId || '',
+      Descricao: inputs[0].value,
+      Quantidade: parseFloat(inputs[1].value) || 0,
+      PrecoUnitario: parseFloat(inputs[2].value) || 0,
+      PrecoTotal: parseMoeda(inputs[3].value)
+    });
+  });
+
+  const dados = {
+    ID: document.getElementById('osId').value || null,
+    ClienteID: clienteId,
+    DataPrevista: document.getElementById('osDataPrevista').value,
+    Tecnico: document.getElementById('osTecnico').value,
+    Descricao: descricao,
+    TotalPecas: parseMoeda(document.getElementById('osTotalPecas').value),
+    TotalMaoObra: parseMoeda(document.getElementById('osTotalMaoObra').value),
+    Desconto: parseFloat(document.getElementById('osDesconto').value) || 0,
+    TotalGeral: parseMoeda(document.getElementById('osTotalGeral').value),
+    Garantia: document.getElementById('osGarantia').value,
+    FormaPagamento: document.getElementById('osFormaPagamento').value,
+    Observacoes: document.getElementById('osObservacoes').value,
+    Itens: itens
+  };
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalOS');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarOrdemServico(dados);
+}
+
+function abrirModalConcluir(id) {
+  document.getElementById('concluirOSId').value = id;
+  document.getElementById('concluirObservacoes').value = '';
+  abrirModal('modalConcluirOS');
+}
+
+function confirmarConclusao() {
+  const id = document.getElementById('concluirOSId').value;
+  const observacoes = document.getElementById('concluirObservacoes').value;
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalConcluirOS');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .concluirOrdemServico(id, observacoes);
+}
+
+function visualizarOS(id) {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(os) {
+      hideLoading();
+      if (!os) {
+        showToast('OS não encontrada!', 'error');
+        return;
+      }
+
+      let itensHtml = '';
+      if (os.Itens && os.Itens.length > 0) {
+        itensHtml = '<table class="table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
+        os.Itens.forEach(item => {
+          itensHtml += `<tr><td>${item.Descricao}</td><td>${item.Quantidade}</td><td>R$ ${formatarMoeda(item.PrecoUnitario)}</td><td>R$ ${formatarMoeda(item.PrecoTotal)}</td></tr>`;
+        });
+        itensHtml += '</tbody></table>';
+      }
+
+      document.getElementById('conteudoDocumento').innerHTML = `
+        <div style="text-align:center; margin-bottom:20px;">
+          <h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ${configuracoes.EMPRESA_NOME || 'Refrigeração Campo Frio'}</h2>
+          <p>${configuracoes.EMPRESA_ENDERECO || ''}</p>
+          <p>${configuracoes.EMPRESA_TELEFONE || ''} | ${configuracoes.EMPRESA_EMAIL || ''}</p>
+        </div>
+        <hr>
+        <h3>ORDEM DE SERVIÇO ${os.Numero}</h3>
+        <div class="info-grid">
+          <div class="info-item"><label>Data Criação</label><span>${os.DataCriacao}</span></div>
+          <div class="info-item"><label>Data Prevista</label><span>${os.DataPrevista || '-'}</span></div>
+          <div class="info-item"><label>Cliente</label><span>${os.ClienteNome}</span></div>
+          <div class="info-item"><label>Status</label><span>${os.Status}</span></div>
+          <div class="info-item"><label>Técnico</label><span>${os.Tecnico || '-'}</span></div>
+          ${os.DataConclusao ? `<div class="info-item"><label>Data Conclusão</label><span>${os.DataConclusao}</span></div>` : ''}
+        </div>
+        <h4>Descrição</h4>
+        <p>${os.Descricao}</p>
+        <h4>Itens</h4>
+        ${itensHtml}
+        <div class="info-grid">
+          <div class="info-item"><label>Total Peças</label><span>R$ ${formatarMoeda(os.TotalPecas)}</span></div>
+          <div class="info-item"><label>Total Mão de Obra</label><span>R$ ${formatarMoeda(os.TotalMaoObra)}</span></div>
+          <div class="info-item"><label>Desconto</label><span>R$ ${formatarMoeda(os.Desconto)}</span></div>
+          <div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ${formatarMoeda(os.TotalGeral)}</span></div>
+        </div>
+        <p><strong>Garantia:</strong> ${os.Garantia || 'Não informada'}</p>
+        <p><strong>Forma de Pagamento:</strong> ${os.FormaPagamento || 'A combinar'}</p>
+        ${os.Observacoes ? `<p><strong>Observações:</strong> ${os.Observacoes}</p>` : ''}
+        ${os.ObsConclusao ? `<p><strong>Obs. Conclusão:</strong> ${os.ObsConclusao}</p>` : ''}
+      `;
+
+      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-tools"></i> Ordem de Serviço ' + os.Numero;
+      abrirModal('modalVisualizarDoc');
+    })
+    .getOrdemServicoById(id);
+}
+
+// ==================== PEÇAS/ESTOQUE ====================
+
+function renderizarPecas() {
+  const tbody = document.querySelector('#tabelaPecas tbody');
+  tbody.innerHTML = '';
+
+  pecas.forEach(peca => {
+    const estoqueClasse = peca.EstoqueAtual <= peca.EstoqueMinimo ? 'estoque-baixo' : 'estoque-ok';
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${peca.Codigo}</td>
+        <td>${peca.Nome}</td>
+        <td>${peca.Categoria || '-'}</td>
+        <td>R$ ${formatarMoeda(peca.PrecoCusto)}</td>
+        <td>R$ ${formatarMoeda(peca.PrecoVenda)}</td>
+        <td class="${estoqueClasse}">${peca.EstoqueAtual} ${peca.Unidade}</td>
+        <td>${peca.EstoqueMinimo} ${peca.Unidade}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-primary btn-action" onclick="editarPeca(${peca.ID})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function filtrarPecas() {
+  const busca = document.getElementById('buscaPeca').value.toLowerCase();
+  const estoqueBaixo = document.getElementById('filtroEstoqueBaixo').checked;
+  const linhas = document.querySelectorAll('#tabelaPecas tbody tr');
+
+  linhas.forEach(linha => {
+    const texto = linha.textContent.toLowerCase();
+    const temEstoqueBaixo = linha.querySelector('.estoque-baixo') !== null;
+
+    const matchBusca = texto.includes(busca);
+    const matchEstoque = !estoqueBaixo || temEstoqueBaixo;
+
+    linha.style.display = matchBusca && matchEstoque ? '' : 'none';
+  });
+}
+
+function abrirModalPeca() {
+  limparFormPeca();
+  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-cog"></i> Nova Peça';
+  abrirModal('modalPeca');
+}
+
+function limparFormPeca() {
+  document.getElementById('formPeca').reset();
+  document.getElementById('pecaId').value = '';
+}
+
+function editarPeca(id) {
+  const peca = pecas.find(p => p.ID == id);
+  if (!peca) return;
+
+  document.getElementById('pecaId').value = peca.ID;
+  document.getElementById('pecaCodigo').value = peca.Codigo;
+  document.getElementById('pecaNome').value = peca.Nome;
+  document.getElementById('pecaDescricao').value = peca.Descricao || '';
+  document.getElementById('pecaCategoria').value = peca.Categoria || '';
+  document.getElementById('pecaUnidade').value = peca.Unidade || 'UN';
+  document.getElementById('pecaPrecoCusto').value = peca.PrecoCusto || 0;
+  document.getElementById('pecaPrecoVenda').value = peca.PrecoVenda || 0;
+  document.getElementById('pecaEstoqueAtual').value = peca.EstoqueAtual || 0;
+  document.getElementById('pecaEstoqueMinimo').value = peca.EstoqueMinimo || 0;
+  document.getElementById('pecaFornecedor').value = peca.Fornecedor || '';
+  document.getElementById('pecaLocalizacao').value = peca.Localizacao || '';
+
+  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Peça';
+  abrirModal('modalPeca');
+}
+
+function salvarPecaForm() {
+  const dados = {
+    ID: document.getElementById('pecaId').value || null,
+    Codigo: document.getElementById('pecaCodigo').value,
+    Nome: document.getElementById('pecaNome').value,
+    Descricao: document.getElementById('pecaDescricao').value,
+    Categoria: document.getElementById('pecaCategoria').value,
+    Unidade: document.getElementById('pecaUnidade').value,
+    PrecoCusto: parseFloat(document.getElementById('pecaPrecoCusto').value) || 0,
+    PrecoVenda: parseFloat(document.getElementById('pecaPrecoVenda').value) || 0,
+    EstoqueAtual: parseInt(document.getElementById('pecaEstoqueAtual').value) || 0,
+    EstoqueMinimo: parseInt(document.getElementById('pecaEstoqueMinimo').value) || 0,
+    Fornecedor: document.getElementById('pecaFornecedor').value,
+    Localizacao: document.getElementById('pecaLocalizacao').value
+  };
+
+  if (!dados.Codigo || !dados.Nome) {
+    showToast('Preencha os campos obrigatórios!', 'warning');
+    return;
+  }
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalPeca');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarPeca(dados);
+}
+
+function abrirModalSelecionarPeca(destino) {
+  document.getElementById('selecionarPecaCallback').value = destino;
+  renderizarPecasModal();
+  abrirModal('modalSelecionarPeca');
+}
+
+function renderizarPecasModal() {
+  const tbody = document.querySelector('#tabelaPecasModal tbody');
+  tbody.innerHTML = '';
+
+  pecas.filter(p => p.EstoqueAtual > 0).forEach(peca => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${peca.Codigo}</td>
+        <td>${peca.Nome}</td>
+        <td>${peca.EstoqueAtual}</td>
+        <td>R$ ${formatarMoeda(peca.PrecoVenda)}</td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick="selecionarPeca(${peca.ID})">
+            <i class="fas fa-plus"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function filtrarPecasModal() {
+  const busca = document.getElementById('buscaPecaModal').value.toLowerCase();
+  const linhas = document.querySelectorAll('#tabelaPecasModal tbody tr');
+
+  linhas.forEach(linha => {
+    const texto = linha.textContent.toLowerCase();
+    linha.style.display = texto.includes(busca) ? '' : 'none';
+  });
+}
+
+function selecionarPeca(pecaId) {
+  const peca = pecas.find(p => p.ID == pecaId);
+  if (!peca) return;
+
+  const destino = document.getElementById('selecionarPecaCallback').value;
+
+  if (destino === 'orcamento') {
+    adicionarLinhaItemOrcamento('Peca', peca.ID, peca.Nome, 1, peca.PrecoVenda);
+  } else {
+    adicionarLinhaItemOS('Peca', peca.ID, peca.Nome, 1, peca.PrecoVenda);
+  }
+
+  fecharModal('modalSelecionarPeca');
+}
+
+// ==================== EMAIL TEMPLATES ====================
+
+function renderizarEmailTemplates() {
+  const grid = document.getElementById('emailTemplatesGrid');
+  grid.innerHTML = '';
+
+  const tiposNomes = {
+    'ORCAMENTO_CRIADO': 'Orçamento Criado',
+    'ORCAMENTO_APROVADO': 'Orçamento Aprovado',
+    'SERVICO_CONCLUIDO': 'Serviço Concluído',
+    'SERVICO_CANCELADO': 'Serviço Cancelado'
+  };
+
+  const tiposDescricoes = {
+    'ORCAMENTO_CRIADO': 'Enviado quando um novo orçamento é criado',
+    'ORCAMENTO_APROVADO': 'Enviado quando o cliente aprova o orçamento',
+    'SERVICO_CONCLUIDO': 'Enviado quando a OS é concluída',
+    'SERVICO_CANCELADO': 'Enviado quando orçamento ou OS é cancelado'
+  };
+
+  emailTemplates.forEach(template => {
+    grid.innerHTML += `
+      <div class="email-template-card">
+        <div class="email-template-header">
+          <h4><i class="fas fa-envelope"></i> ${tiposNomes[template.Tipo] || template.Tipo}</h4>
+          <p>${tiposDescricoes[template.Tipo] || ''}</p>
+        </div>
+        <div class="email-template-body">
+          <p class="assunto"><strong>Assunto:</strong> ${template.Assunto}</p>
+          <button class="btn btn-primary btn-block" onclick="editarEmailTemplate('${template.Tipo}')">
+            <i class="fas fa-edit"></i> Editar Template
+          </button>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function editarEmailTemplate(tipo) {
+  const template = emailTemplates.find(t => t.Tipo === tipo);
+  if (!template) return;
+
+  document.getElementById('templateTipo').value = template.Tipo;
+  document.getElementById('templateAssunto').value = template.Assunto;
+  document.getElementById('templateCorpo').value = template.Corpo;
+  document.getElementById('templateAtivo').checked = template.Ativo === 'Sim';
+
+  abrirModal('modalEmailTemplate');
+}
+
+function salvarEmailTemplateForm() {
+  const dados = {
+    Tipo: document.getElementById('templateTipo').value,
+    Assunto: document.getElementById('templateAssunto').value,
+    Corpo: document.getElementById('templateCorpo').value,
+    Ativo: document.getElementById('templateAtivo').checked ? 'Sim' : 'Não'
+  };
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modalEmailTemplate');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarEmailTemplate(dados);
+}
+
+// ==================== CONFIGURAÇÕES ====================
+
+function carregarConfiguracoes() {
+  document.getElementById('configEmpresaNome').value = configuracoes.EMPRESA_NOME || '';
+  document.getElementById('configEmpresaCNPJ').value = configuracoes.EMPRESA_CNPJ || '';
+  document.getElementById('configEmpresaTelefone').value = configuracoes.EMPRESA_TELEFONE || '';
+  document.getElementById('configEmpresaEmail').value = configuracoes.EMPRESA_EMAIL || '';
+  document.getElementById('configEmpresaEndereco').value = configuracoes.EMPRESA_ENDERECO || '';
+  document.getElementById('configPrefixoOrcamento').value = configuracoes.PREFIXO_ORCAMENTO || 'ORC';
+  document.getElementById('configPrefixoOS').value = configuracoes.PREFIXO_OS || 'OS';
+  document.getElementById('configValidadeOrcamento').value = configuracoes.VALIDADE_ORCAMENTO || '15';
+  document.getElementById('configGarantiaPadrao').value = configuracoes.GARANTIA_PADRAO || '90 dias';
+  document.getElementById('configFormasPagamento').value = configuracoes.FORMAS_PAGAMENTO || '';
+}
+
+function salvarTodasConfiguracoes() {
+  const configs = {
+    EMPRESA_NOME: document.getElementById('configEmpresaNome').value,
+    EMPRESA_CNPJ: document.getElementById('configEmpresaCNPJ').value,
+    EMPRESA_TELEFONE: document.getElementById('configEmpresaTelefone').value,
+    EMPRESA_EMAIL: document.getElementById('configEmpresaEmail').value,
+    EMPRESA_ENDERECO: document.getElementById('configEmpresaEndereco').value,
+    PREFIXO_ORCAMENTO: document.getElementById('configPrefixoOrcamento').value,
+    PREFIXO_OS: document.getElementById('configPrefixoOS').value,
+    VALIDADE_ORCAMENTO: document.getElementById('configValidadeOrcamento').value,
+    GARANTIA_PADRAO: document.getElementById('configGarantiaPadrao').value,
+    FORMAS_PAGAMENTO: document.getElementById('configFormasPagamento').value
+  };
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        sincronizarDados();
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showToast('Erro: ' + error.message, 'error');
+    })
+    .salvarConfiguracoes(configs);
+}
+
+function popularSelectFormasPagamento() {
+  const formas = (configuracoes.FORMAS_PAGAMENTO || '').split(',').map(f => f.trim()).filter(Boolean);
+  const selects = ['orcamentoFormaPagamento', 'osFormaPagamento'];
+
+  selects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const valorAtual = select.value;
+    select.innerHTML = '<option value="">Selecione...</option>';
+
+    formas.forEach(forma => {
+      select.innerHTML += `<option value="${forma}">${forma}</option>`;
+    });
+
+    if (valorAtual) select.value = valorAtual;
+  });
+}
+
+// ==================== FUNÇÕES UTILITÁRIAS ====================
+
+function formatarMoeda(valor) {
+  return parseFloat(valor || 0).toFixed(2).replace('.', ',');
+}
+
+function parseMoeda(valor) {
+  return parseFloat((valor || '0').replace(',', '.')) || 0;
+}
+
+function formatarDataInput(dataStr) {
+  if (!dataStr) return '';
+  const partes = dataStr.split('/');
+  if (partes.length === 3) {
+    return `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+  }
+  return dataStr;
+}
+
+function imprimirDocumento() {
+  const conteudo = document.getElementById('conteudoDocumento').innerHTML;
+  const janela = window.open('', '_blank');
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Imprimir Documento</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .table th { background: #f5f5f5; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; }
+        .info-item { padding: 10px; background: #f9f9f9; }
+        .info-item label { font-size: 12px; color: #666; display: block; }
+        .info-item span { font-weight: bold; }
+        h2 { color: #2c3e50; }
+        hr { margin: 20px 0; border: none; border-top: 1px solid #ddd; }
+      </style>
+    </head>
+    <body>
+      ${conteudo}
+      <script>window.onload = function() { window.print(); }</script>
+    </body>
+    </html>
+  `);
+  janela.document.close();
+}
+</script>

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema OS ORÇAMENTOS - Refrigeração Campo Frio</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Carregando sistema...</p>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="menu-toggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="logo">
+        <i class="fas fa-snowflake"></i>
+        <span>Refrigeração Campo Frio</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="status-badge online">
+        <i class="fas fa-circle"></i> Online
+      </span>
+      <button class="btn-icon" onclick="sincronizarDados()" title="Sincronizar">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')">
+        <i class="fas fa-tachometer-alt"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-section="clientes" onclick="showSection('clientes')">
+        <i class="fas fa-users"></i>
+        <span>Clientes</span>
+        <span class="badge" id="badgeClientes">0</span>
+      </a>
+      <a href="#" class="nav-item" data-section="orcamentos" onclick="showSection('orcamentos')">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <span>Orçamentos</span>
+        <span class="badge" id="badgeOrcamentos">0</span>
+      </a>
+      <a href="#" class="nav-item" data-section="ordensServico" onclick="showSection('ordensServico')">
+        <i class="fas fa-tools"></i>
+        <span>Ordens de Serviço</span>
+        <span class="badge" id="badgeOS">0</span>
+      </a>
+      <a href="#" class="nav-item" data-section="estoque" onclick="showSection('estoque')">
+        <i class="fas fa-boxes"></i>
+        <span>Estoque/Peças</span>
+        <span class="badge warning" id="badgeEstoque">0</span>
+      </a>
+      <a href="#" class="nav-item" data-section="emails" onclick="showSection('emails')">
+        <i class="fas fa-envelope"></i>
+        <span>Templates de Email</span>
+      </a>
+      <a href="#" class="nav-item" data-section="configuracoes" onclick="showSection('configuracoes')">
+        <i class="fas fa-cog"></i>
+        <span>Configurações</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+
+    <!-- DASHBOARD -->
+    <section id="section-dashboard" class="section active">
+      <div class="section-header">
+        <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+        <p class="subtitle">Visão geral do sistema</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-users"></i></div>
+          <div class="stat-info">
+            <h3 id="statClientes">0</h3>
+            <p>Clientes Cadastrados</p>
+          </div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+          <div class="stat-info">
+            <h3 id="statOrcPendentes">0</h3>
+            <p>Orçamentos Pendentes</p>
+          </div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon"><i class="fas fa-tools"></i></div>
+          <div class="stat-info">
+            <h3 id="statOSAndamento">0</h3>
+            <p>OS em Andamento</p>
+          </div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-info">
+            <h3 id="statOSConcluidas">0</h3>
+            <p>OS Concluídas</p>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+          <div class="stat-info">
+            <h3 id="statEstoqueBaixo">0</h3>
+            <p>Peças Estoque Baixo</p>
+          </div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+          <div class="stat-info">
+            <h3 id="statTotalMes">R$ 0,00</h3>
+            <p>Faturamento do Mês</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-file-invoice-dollar"></i> Últimos Orçamentos</h3>
+            <button class="btn btn-sm btn-primary" onclick="showSection('orcamentos')">Ver Todos</button>
+          </div>
+          <div class="card-body">
+            <table class="table" id="tabelaUltimosOrcamentos">
+              <thead>
+                <tr>
+                  <th>Número</th>
+                  <th>Cliente</th>
+                  <th>Data</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-tools"></i> Últimas Ordens de Serviço</h3>
+            <button class="btn btn-sm btn-primary" onclick="showSection('ordensServico')">Ver Todas</button>
+          </div>
+          <div class="card-body">
+            <table class="table" id="tabelaUltimasOS">
+              <thead>
+                <tr>
+                  <th>Número</th>
+                  <th>Cliente</th>
+                  <th>Data</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section id="section-clientes" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-users"></i> Clientes</h1>
+        <button class="btn btn-primary" onclick="abrirModalCliente()">
+          <i class="fas fa-plus"></i> Novo Cliente
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscaCliente" placeholder="Buscar cliente..." onkeyup="filtrarClientes()">
+          </div>
+        </div>
+        <div class="card-body">
+          <table class="table" id="tabelaClientes">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>CPF/CNPJ</th>
+                <th>Telefone</th>
+                <th>Email</th>
+                <th>Cidade</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORÇAMENTOS -->
+    <section id="section-orcamentos" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-file-invoice-dollar"></i> Orçamentos</h1>
+        <button class="btn btn-primary" onclick="abrirModalOrcamento()">
+          <i class="fas fa-plus"></i> Novo Orçamento
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscaOrcamento" placeholder="Buscar orçamento..." onkeyup="filtrarOrcamentos()">
+          </div>
+          <div class="filter-group">
+            <select id="filtroStatusOrc" onchange="filtrarOrcamentos()">
+              <option value="">Todos os Status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Aprovado">Aprovado</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <table class="table" id="tabelaOrcamentos">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Data</th>
+                <th>Validade</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORDENS DE SERVIÇO -->
+    <section id="section-ordensServico" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-tools"></i> Ordens de Serviço</h1>
+        <button class="btn btn-primary" onclick="abrirModalOS()">
+          <i class="fas fa-plus"></i> Nova OS
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscaOS" placeholder="Buscar OS..." onkeyup="filtrarOS()">
+          </div>
+          <div class="filter-group">
+            <select id="filtroStatusOS" onchange="filtrarOS()">
+              <option value="">Todos os Status</option>
+              <option value="Em Andamento">Em Andamento</option>
+              <option value="Concluída">Concluída</option>
+              <option value="Cancelada">Cancelada</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <table class="table" id="tabelaOS">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Data Criação</th>
+                <th>Previsão</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ESTOQUE/PEÇAS -->
+    <section id="section-estoque" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-boxes"></i> Estoque / Peças</h1>
+        <button class="btn btn-primary" onclick="abrirModalPeca()">
+          <i class="fas fa-plus"></i> Nova Peça
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscaPeca" placeholder="Buscar peça..." onkeyup="filtrarPecas()">
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="filtroEstoqueBaixo" onchange="filtrarPecas()">
+            <span>Apenas estoque baixo</span>
+          </label>
+        </div>
+        <div class="card-body">
+          <table class="table" id="tabelaPecas">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Preço Custo</th>
+                <th>Preço Venda</th>
+                <th>Estoque</th>
+                <th>Mínimo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TEMPLATES DE EMAIL -->
+    <section id="section-emails" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-envelope"></i> Templates de Email</h1>
+        <p class="subtitle">Configure os modelos de email para cada situação</p>
+      </div>
+
+      <div class="email-templates-grid" id="emailTemplatesGrid">
+        <!-- Templates serão carregados dinamicamente -->
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section id="section-configuracoes" class="section">
+      <div class="section-header">
+        <h1><i class="fas fa-cog"></i> Configurações</h1>
+        <p class="subtitle">Configurações gerais do sistema</p>
+      </div>
+
+      <div class="config-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-building"></i> Dados da Empresa</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>Nome da Empresa</label>
+              <input type="text" id="configEmpresaNome" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>CNPJ</label>
+              <input type="text" id="configEmpresaCNPJ" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" id="configEmpresaTelefone" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="configEmpresaEmail" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Endereço</label>
+              <input type="text" id="configEmpresaEndereco" class="form-control">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-file-alt"></i> Documentos</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>Prefixo do Orçamento</label>
+              <input type="text" id="configPrefixoOrcamento" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Prefixo da OS</label>
+              <input type="text" id="configPrefixoOS" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Validade do Orçamento (dias)</label>
+              <input type="number" id="configValidadeOrcamento" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Garantia Padrão</label>
+              <input type="text" id="configGarantiaPadrao" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Formas de Pagamento</label>
+              <textarea id="configFormasPagamento" class="form-control" rows="3" placeholder="Separe por vírgula"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary btn-lg" onclick="salvarTodasConfiguracoes()">
+          <i class="fas fa-save"></i> Salvar Configurações
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAIS -->
+
+  <!-- Modal Cliente -->
+  <div class="modal" id="modalCliente">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalClienteTitulo"><i class="fas fa-user-plus"></i> Novo Cliente</h2>
+        <button class="modal-close" onclick="fecharModal('modalCliente')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formCliente">
+          <input type="hidden" id="clienteId">
+          <div class="form-row">
+            <div class="form-group col-8">
+              <label>Nome Completo *</label>
+              <input type="text" id="clienteNome" class="form-control" required>
+            </div>
+            <div class="form-group col-4">
+              <label>CPF/CNPJ</label>
+              <input type="text" id="clienteCpfCnpj" class="form-control">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Telefone *</label>
+              <input type="text" id="clienteTelefone" class="form-control" required>
+            </div>
+            <div class="form-group col-6">
+              <label>Email</label>
+              <input type="email" id="clienteEmail" class="form-control">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Endereço</label>
+            <input type="text" id="clienteEndereco" class="form-control">
+          </div>
+          <div class="form-row">
+            <div class="form-group col-5">
+              <label>Cidade</label>
+              <input type="text" id="clienteCidade" class="form-control">
+            </div>
+            <div class="form-group col-3">
+              <label>Estado</label>
+              <input type="text" id="clienteEstado" class="form-control" maxlength="2">
+            </div>
+            <div class="form-group col-4">
+              <label>CEP</label>
+              <input type="text" id="clienteCep" class="form-control">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="clienteObservacoes" class="form-control" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalCliente')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarClienteForm()">
+          <i class="fas fa-save"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Orçamento -->
+  <div class="modal modal-lg" id="modalOrcamento">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalOrcamentoTitulo"><i class="fas fa-file-invoice-dollar"></i> Novo Orçamento</h2>
+        <button class="modal-close" onclick="fecharModal('modalOrcamento')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formOrcamento">
+          <input type="hidden" id="orcamentoId">
+
+          <!-- Seleção de Cliente -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <h4><i class="fas fa-user"></i> Cliente</h4>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group col-8">
+                  <label>Selecione o Cliente *</label>
+                  <select id="orcamentoClienteId" class="form-control" required onchange="preencherDadosCliente('orcamento')">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="form-group col-4">
+                  <label>&nbsp;</label>
+                  <button type="button" class="btn btn-secondary btn-block" onclick="abrirModalCliente()">
+                    <i class="fas fa-user-plus"></i> Novo Cliente
+                  </button>
+                </div>
+              </div>
+              <div id="orcamentoClienteInfo" class="cliente-info" style="display:none;">
+                <p><strong>Email:</strong> <span id="orcamentoClienteEmail"></span></p>
+                <p><strong>Telefone:</strong> <span id="orcamentoClienteTelefone"></span></p>
+                <p><strong>Endereço:</strong> <span id="orcamentoClienteEndereco"></span></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Descrição do Serviço -->
+          <div class="form-group">
+            <label>Descrição do Serviço *</label>
+            <textarea id="orcamentoDescricao" class="form-control" rows="3" required></textarea>
+          </div>
+
+          <!-- Itens do Orçamento -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <h4><i class="fas fa-list"></i> Itens do Orçamento</h4>
+              <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-primary" onclick="adicionarItemOrcamento('peca')">
+                  <i class="fas fa-cog"></i> Add Peça
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="adicionarItemOrcamento('servico')">
+                  <i class="fas fa-wrench"></i> Add Serviço
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <table class="table" id="tabelaItensOrcamento">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Qtd</th>
+                    <th>Valor Unit.</th>
+                    <th>Total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Totais -->
+          <div class="totais-grid">
+            <div class="total-item">
+              <label>Total Peças</label>
+              <input type="text" id="orcamentoTotalPecas" class="form-control" value="0,00" readonly>
+            </div>
+            <div class="total-item">
+              <label>Total Mão de Obra</label>
+              <input type="text" id="orcamentoTotalMaoObra" class="form-control" value="0,00" readonly>
+            </div>
+            <div class="total-item">
+              <label>Desconto (R$)</label>
+              <input type="number" id="orcamentoDesconto" class="form-control" value="0" step="0.01" onchange="calcularTotalOrcamento()">
+            </div>
+            <div class="total-item total-geral">
+              <label>TOTAL GERAL</label>
+              <input type="text" id="orcamentoTotalGeral" class="form-control" value="0,00" readonly>
+            </div>
+          </div>
+
+          <!-- Garantia e Pagamento -->
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Garantia</label>
+              <input type="text" id="orcamentoGarantia" class="form-control" placeholder="Ex: 90 dias">
+            </div>
+            <div class="form-group col-6">
+              <label>Forma de Pagamento</label>
+              <select id="orcamentoFormaPagamento" class="form-control">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Observações -->
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="orcamentoObservacoes" class="form-control" rows="2"></textarea>
+          </div>
+
+          <!-- Opção de envio de email -->
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="orcamentoEnviarEmail" checked>
+              <span>Enviar email para o cliente ao criar o orçamento</span>
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalOrcamento')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarOrcamentoForm()">
+          <i class="fas fa-save"></i> Salvar Orçamento
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Aprovar Orçamento -->
+  <div class="modal" id="modalAprovarOrcamento">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-check-circle"></i> Aprovar Orçamento</h2>
+        <button class="modal-close" onclick="fecharModal('modalAprovarOrcamento')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="aprovarOrcamentoId">
+        <p>Ao aprovar este orçamento, uma Ordem de Serviço será criada automaticamente.</p>
+        <div class="form-group">
+          <label>Data Prevista para Conclusão</label>
+          <input type="date" id="aprovarDataPrevista" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalAprovarOrcamento')">Cancelar</button>
+        <button class="btn btn-success" onclick="confirmarAprovacao()">
+          <i class="fas fa-check"></i> Aprovar e Criar OS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cancelar -->
+  <div class="modal" id="modalCancelar">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-times-circle"></i> Cancelar</h2>
+        <button class="modal-close" onclick="fecharModal('modalCancelar')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cancelarId">
+        <input type="hidden" id="cancelarTipo">
+        <p class="text-danger">Esta ação não pode ser desfeita!</p>
+        <div class="form-group">
+          <label>Motivo do Cancelamento *</label>
+          <textarea id="cancelarMotivo" class="form-control" rows="3" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalCancelar')">Voltar</button>
+        <button class="btn btn-danger" onclick="confirmarCancelamento()">
+          <i class="fas fa-times"></i> Confirmar Cancelamento
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ordem de Serviço -->
+  <div class="modal modal-lg" id="modalOS">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalOSTitulo"><i class="fas fa-tools"></i> Nova Ordem de Serviço</h2>
+        <button class="modal-close" onclick="fecharModal('modalOS')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formOS">
+          <input type="hidden" id="osId">
+
+          <!-- Seleção de Cliente -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <h4><i class="fas fa-user"></i> Cliente</h4>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group col-8">
+                  <label>Selecione o Cliente *</label>
+                  <select id="osClienteId" class="form-control" required onchange="preencherDadosCliente('os')">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="form-group col-4">
+                  <label>&nbsp;</label>
+                  <button type="button" class="btn btn-secondary btn-block" onclick="abrirModalCliente()">
+                    <i class="fas fa-user-plus"></i> Novo Cliente
+                  </button>
+                </div>
+              </div>
+              <div id="osClienteInfo" class="cliente-info" style="display:none;">
+                <p><strong>Email:</strong> <span id="osClienteEmail"></span></p>
+                <p><strong>Telefone:</strong> <span id="osClienteTelefone"></span></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informações da OS -->
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Data Prevista</label>
+              <input type="date" id="osDataPrevista" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Técnico Responsável</label>
+              <input type="text" id="osTecnico" class="form-control">
+            </div>
+          </div>
+
+          <!-- Descrição do Serviço -->
+          <div class="form-group">
+            <label>Descrição do Serviço *</label>
+            <textarea id="osDescricao" class="form-control" rows="3" required></textarea>
+          </div>
+
+          <!-- Itens da OS -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <h4><i class="fas fa-list"></i> Itens da OS</h4>
+              <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-primary" onclick="adicionarItemOS('peca')">
+                  <i class="fas fa-cog"></i> Add Peça
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="adicionarItemOS('servico')">
+                  <i class="fas fa-wrench"></i> Add Serviço
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <table class="table" id="tabelaItensOS">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Qtd</th>
+                    <th>Valor Unit.</th>
+                    <th>Total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Totais -->
+          <div class="totais-grid">
+            <div class="total-item">
+              <label>Total Peças</label>
+              <input type="text" id="osTotalPecas" class="form-control" value="0,00" readonly>
+            </div>
+            <div class="total-item">
+              <label>Total Mão de Obra</label>
+              <input type="text" id="osTotalMaoObra" class="form-control" value="0,00" readonly>
+            </div>
+            <div class="total-item">
+              <label>Desconto (R$)</label>
+              <input type="number" id="osDesconto" class="form-control" value="0" step="0.01" onchange="calcularTotalOS()">
+            </div>
+            <div class="total-item total-geral">
+              <label>TOTAL GERAL</label>
+              <input type="text" id="osTotalGeral" class="form-control" value="0,00" readonly>
+            </div>
+          </div>
+
+          <!-- Garantia e Pagamento -->
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Garantia</label>
+              <input type="text" id="osGarantia" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Forma de Pagamento</label>
+              <select id="osFormaPagamento" class="form-control">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Observações -->
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="osObservacoes" class="form-control" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalOS')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarOSForm()">
+          <i class="fas fa-save"></i> Salvar OS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Concluir OS -->
+  <div class="modal" id="modalConcluirOS">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-check-double"></i> Concluir Serviço</h2>
+        <button class="modal-close" onclick="fecharModal('modalConcluirOS')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="concluirOSId">
+        <p>Ao concluir este serviço, será dado baixa automática no estoque das peças utilizadas.</p>
+        <div class="form-group">
+          <label>Observações da Conclusão</label>
+          <textarea id="concluirObservacoes" class="form-control" rows="3" placeholder="Descreva os serviços realizados, peças trocadas, etc."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalConcluirOS')">Cancelar</button>
+        <button class="btn btn-success" onclick="confirmarConclusao()">
+          <i class="fas fa-check"></i> Confirmar Conclusão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Peça -->
+  <div class="modal" id="modalPeca">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalPecaTitulo"><i class="fas fa-cog"></i> Nova Peça</h2>
+        <button class="modal-close" onclick="fecharModal('modalPeca')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formPeca">
+          <input type="hidden" id="pecaId">
+          <div class="form-row">
+            <div class="form-group col-4">
+              <label>Código *</label>
+              <input type="text" id="pecaCodigo" class="form-control" required>
+            </div>
+            <div class="form-group col-8">
+              <label>Nome *</label>
+              <input type="text" id="pecaNome" class="form-control" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="pecaDescricao" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Categoria</label>
+              <input type="text" id="pecaCategoria" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Unidade</label>
+              <select id="pecaUnidade" class="form-control">
+                <option value="UN">Unidade (UN)</option>
+                <option value="PC">Peça (PC)</option>
+                <option value="MT">Metro (MT)</option>
+                <option value="KG">Quilograma (KG)</option>
+                <option value="LT">Litro (LT)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Preço de Custo (R$)</label>
+              <input type="number" id="pecaPrecoCusto" class="form-control" step="0.01" value="0">
+            </div>
+            <div class="form-group col-6">
+              <label>Preço de Venda (R$) *</label>
+              <input type="number" id="pecaPrecoVenda" class="form-control" step="0.01" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Estoque Atual</label>
+              <input type="number" id="pecaEstoqueAtual" class="form-control" value="0">
+            </div>
+            <div class="form-group col-6">
+              <label>Estoque Mínimo</label>
+              <input type="number" id="pecaEstoqueMinimo" class="form-control" value="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Fornecedor</label>
+              <input type="text" id="pecaFornecedor" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Localização</label>
+              <input type="text" id="pecaLocalizacao" class="form-control" placeholder="Ex: Prateleira A3">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalPeca')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarPecaForm()">
+          <i class="fas fa-save"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Editar Template de Email -->
+  <div class="modal modal-lg" id="modalEmailTemplate">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-envelope-open-text"></i> Editar Template de Email</h2>
+        <button class="modal-close" onclick="fecharModal('modalEmailTemplate')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formEmailTemplate">
+          <input type="hidden" id="templateTipo">
+
+          <div class="alert alert-info">
+            <strong>Variáveis disponíveis:</strong><br>
+            <code>{NUMERO}</code>, <code>{CLIENTE_NOME}</code>, <code>{CLIENTE_EMAIL}</code>, <code>{DATA_CRIACAO}</code>, <code>{DATA_VALIDADE}</code>, <code>{DATA_PREVISTA}</code>, <code>{DATA_CONCLUSAO}</code>, <code>{DESCRICAO}</code>, <code>{TOTAL_PECAS}</code>, <code>{TOTAL_MAO_OBRA}</code>, <code>{DESCONTO}</code>, <code>{TOTAL_GERAL}</code>, <code>{GARANTIA}</code>, <code>{FORMA_PAGAMENTO}</code>, <code>{TECNICO}</code>, <code>{OBSERVACOES}</code>, <code>{EMPRESA_NOME}</code>, <code>{EMPRESA_TELEFONE}</code>, <code>{MOTIVO_CANCELAMENTO}</code>
+          </div>
+
+          <div class="form-group">
+            <label>Assunto do Email</label>
+            <input type="text" id="templateAssunto" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label>Corpo do Email (HTML)</label>
+            <textarea id="templateCorpo" class="form-control" rows="15"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="templateAtivo">
+              <span>Template ativo</span>
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalEmailTemplate')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarEmailTemplateForm()">
+          <i class="fas fa-save"></i> Salvar Template
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Visualizar Documento -->
+  <div class="modal modal-lg" id="modalVisualizarDoc">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalVisualizarTitulo"><i class="fas fa-eye"></i> Visualizar Documento</h2>
+        <button class="modal-close" onclick="fecharModal('modalVisualizarDoc')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="conteudoDocumento"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modalVisualizarDoc')">Fechar</button>
+        <button class="btn btn-primary" onclick="imprimirDocumento()">
+          <i class="fas fa-print"></i> Imprimir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Selecionar Peça -->
+  <div class="modal" id="modalSelecionarPeca">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-search"></i> Selecionar Peça do Estoque</h2>
+        <button class="modal-close" onclick="fecharModal('modalSelecionarPeca')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="selecionarPecaCallback">
+        <div class="search-box mb-3">
+          <i class="fas fa-search"></i>
+          <input type="text" id="buscaPecaModal" placeholder="Buscar peça..." onkeyup="filtrarPecasModal()">
+        </div>
+        <table class="table" id="tabelaPecasModal">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nome</th>
+              <th>Estoque</th>
+              <th>Preço</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer"></div>
+
+  <?!= include('JavaScript'); ?>
+</body>
+</html>
