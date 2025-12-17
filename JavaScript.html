@@ -665,24 +665,33 @@ function confirmarCancelamento() {
 
   showLoading();
 
-  const funcao = tipo === 'ORCAMENTO' ? 'cancelarOrcamento' : 'cancelarOrdemServico';
+  const successHandler = function(result) {
+    hideLoading();
+    if (result.success) {
+      showToast(result.message, 'success');
+      fecharModal('modalCancelar');
+      sincronizarDados();
+    } else {
+      showToast(result.message, 'error');
+    }
+  };
 
-  google.script.run
-    .withSuccessHandler(function(result) {
-      hideLoading();
-      if (result.success) {
-        showToast(result.message, 'success');
-        fecharModal('modalCancelar');
-        sincronizarDados();
-      } else {
-        showToast(result.message, 'error');
-      }
-    })
-    .withFailureHandler(function(error) {
-      hideLoading();
-      showToast('Erro: ' + error.message, 'error');
-    })
-    [funcao](id, motivo);
+  const failureHandler = function(error) {
+    hideLoading();
+    showToast('Erro: ' + error.message, 'error');
+  };
+
+  if (tipo === 'ORCAMENTO') {
+    google.script.run
+      .withSuccessHandler(successHandler)
+      .withFailureHandler(failureHandler)
+      .cancelarOrcamento(id, motivo);
+  } else {
+    google.script.run
+      .withSuccessHandler(successHandler)
+      .withFailureHandler(failureHandler)
+      .cancelarOrdemServico(id, motivo);
+  }
 }
 
 function visualizarOrcamento(id) {
