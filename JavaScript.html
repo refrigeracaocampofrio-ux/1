@@ -1,17 +1,17 @@
 <script>
-// ==================== VARIÁVEIS GLOBAIS ====================
-let clientes = [];
-let orcamentos = [];
-let ordensServico = [];
-let pecas = [];
-let configuracoes = {};
-let emailTemplates = [];
+// ==================== VARIAVEIS GLOBAIS ====================
+var clientes = [];
+var orcamentos = [];
+var ordensServico = [];
+var pecas = [];
+var configuracoes = {};
+var emailTemplates = [];
 
-// Contadores de itens nos formulários
-let contadorItemOrcamento = 0;
-let contadorItemOS = 0;
+// Contadores de itens nos formularios
+var contadorItemOrcamento = 0;
+var contadorItemOS = 0;
 
-// ==================== INICIALIZAÇÃO ====================
+// ==================== INICIALIZACAO ====================
 
 document.addEventListener('DOMContentLoaded', function() {
   inicializarSistema();
@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function inicializarSistema() {
   showLoading();
-
   google.script.run
     .withSuccessHandler(function(result) {
       carregarDados();
@@ -32,33 +31,47 @@ function inicializarSistema() {
 }
 
 function carregarDados() {
-  Promise.all([
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { clientes = data || []; resolve(); }).getClientes();
-    }),
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { orcamentos = data || []; resolve(); }).getOrcamentos();
-    }),
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { ordensServico = data || []; resolve(); }).getOrdensServico();
-    }),
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { pecas = data || []; resolve(); }).getPecas();
-    }),
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { configuracoes = data || {}; resolve(); }).getConfiguracoes();
-    }),
-    new Promise((resolve) => {
-      google.script.run.withSuccessHandler((data) => { emailTemplates = data || []; resolve(); }).getEmailTemplates();
-    })
-  ]).then(() => {
-    atualizarInterface();
-    hideLoading();
-    showToast('Sistema carregado com sucesso!', 'success');
-  }).catch((error) => {
-    hideLoading();
-    showToast('Erro ao carregar dados', 'error');
-  });
+  var loaded = 0;
+  var total = 6;
+
+  function checkLoaded() {
+    loaded++;
+    if (loaded >= total) {
+      atualizarInterface();
+      hideLoading();
+      showToast('Sistema carregado com sucesso!', 'success');
+    }
+  }
+
+  google.script.run.withSuccessHandler(function(data) {
+    clientes = data || [];
+    checkLoaded();
+  }).getClientes();
+
+  google.script.run.withSuccessHandler(function(data) {
+    orcamentos = data || [];
+    checkLoaded();
+  }).getOrcamentos();
+
+  google.script.run.withSuccessHandler(function(data) {
+    ordensServico = data || [];
+    checkLoaded();
+  }).getOrdensServico();
+
+  google.script.run.withSuccessHandler(function(data) {
+    pecas = data || [];
+    checkLoaded();
+  }).getPecas();
+
+  google.script.run.withSuccessHandler(function(data) {
+    configuracoes = data || {};
+    checkLoaded();
+  }).getConfiguracoes();
+
+  google.script.run.withSuccessHandler(function(data) {
+    emailTemplates = data || [];
+    checkLoaded();
+  }).getEmailTemplates();
 }
 
 function sincronizarDados() {
@@ -79,18 +92,22 @@ function atualizarInterface() {
   popularSelectFormasPagamento();
 }
 
-// ==================== FUNÇÕES DE NAVEGAÇÃO ====================
+// ==================== FUNCOES DE NAVEGACAO ====================
 
 function showSection(sectionId) {
-  // Remover classe active de todas as seções e itens do menu
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  var sections = document.querySelectorAll('.section');
+  for (var i = 0; i < sections.length; i++) {
+    sections[i].classList.remove('active');
+  }
 
-  // Ativar seção selecionada
+  var navItems = document.querySelectorAll('.nav-item');
+  for (var i = 0; i < navItems.length; i++) {
+    navItems[i].classList.remove('active');
+  }
+
   document.getElementById('section-' + sectionId).classList.add('active');
-  document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+  document.querySelector('[data-section="' + sectionId + '"]').classList.add('active');
 
-  // Fechar sidebar em dispositivos móveis
   if (window.innerWidth <= 992) {
     document.getElementById('sidebar').classList.remove('show');
   }
@@ -99,11 +116,11 @@ function showSection(sectionId) {
 }
 
 function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
+  var sidebar = document.getElementById('sidebar');
   sidebar.classList.toggle('show');
 }
 
-// ==================== FUNÇÕES DE LOADING E TOAST ====================
+// ==================== FUNCOES DE LOADING E TOAST ====================
 
 function showLoading() {
   document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -113,28 +130,33 @@ function hideLoading() {
   document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
   toast.className = 'toast ' + type;
 
-  const icons = {
+  var icons = {
     success: 'fa-check-circle',
     error: 'fa-times-circle',
     warning: 'fa-exclamation-triangle',
     info: 'fa-info-circle'
   };
 
-  toast.innerHTML = `<i class="fas ${icons[type]}"></i> ${message}`;
+  toast.innerHTML = '<i class="fas ' + icons[type] + '"></i> ' + message;
   container.appendChild(toast);
 
-  setTimeout(() => {
+  setTimeout(function() {
     toast.style.animation = 'toastOut 0.3s ease forwards';
-    setTimeout(() => toast.remove(), 300);
+    setTimeout(function() {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
   }, 4000);
 }
 
-// ==================== FUNÇÕES DE MODAL ====================
+// ==================== FUNCOES DE MODAL ====================
 
 function abrirModal(modalId) {
   document.getElementById(modalId).classList.add('show');
@@ -144,7 +166,6 @@ function fecharModal(modalId) {
   document.getElementById(modalId).classList.remove('show');
 }
 
-// Fechar modal ao clicar fora
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('modal') && e.target.classList.contains('show')) {
     e.target.classList.remove('show');
@@ -163,99 +184,109 @@ function atualizarDashboard() {
       document.getElementById('statEstoqueBaixo').textContent = data.estoque.estoqueBaixo;
       document.getElementById('statTotalMes').textContent = 'R$ ' + formatarMoeda(data.financeiro.totalMes);
 
-      // Renderizar últimos orçamentos
-      const tbodyOrc = document.querySelector('#tabelaUltimosOrcamentos tbody');
+      var tbodyOrc = document.querySelector('#tabelaUltimosOrcamentos tbody');
       tbodyOrc.innerHTML = '';
-      data.ultimosOrcamentos.forEach(orc => {
-        tbodyOrc.innerHTML += `
-          <tr>
-            <td>${orc.Numero}</td>
-            <td>${orc.ClienteNome}</td>
-            <td>${orc.DataCriacao}</td>
-            <td>R$ ${formatarMoeda(orc.TotalGeral)}</td>
-            <td>${getStatusBadge(orc.Status)}</td>
-          </tr>
-        `;
-      });
+      for (var i = 0; i < data.ultimosOrcamentos.length; i++) {
+        var orc = data.ultimosOrcamentos[i];
+        tbodyOrc.innerHTML += '<tr>' +
+          '<td>' + orc.Numero + '</td>' +
+          '<td>' + orc.ClienteNome + '</td>' +
+          '<td>' + orc.DataCriacao + '</td>' +
+          '<td>R$ ' + formatarMoeda(orc.TotalGeral) + '</td>' +
+          '<td>' + getStatusBadge(orc.Status) + '</td>' +
+          '</tr>';
+      }
 
-      // Renderizar últimas OS
-      const tbodyOS = document.querySelector('#tabelaUltimasOS tbody');
+      var tbodyOS = document.querySelector('#tabelaUltimasOS tbody');
       tbodyOS.innerHTML = '';
-      data.ultimasOS.forEach(os => {
-        tbodyOS.innerHTML += `
-          <tr>
-            <td>${os.Numero}</td>
-            <td>${os.ClienteNome}</td>
-            <td>${os.DataCriacao}</td>
-            <td>R$ ${formatarMoeda(os.TotalGeral)}</td>
-            <td>${getStatusBadge(os.Status)}</td>
-          </tr>
-        `;
-      });
+      for (var i = 0; i < data.ultimasOS.length; i++) {
+        var os = data.ultimasOS[i];
+        tbodyOS.innerHTML += '<tr>' +
+          '<td>' + os.Numero + '</td>' +
+          '<td>' + os.ClienteNome + '</td>' +
+          '<td>' + os.DataCriacao + '</td>' +
+          '<td>R$ ' + formatarMoeda(os.TotalGeral) + '</td>' +
+          '<td>' + getStatusBadge(os.Status) + '</td>' +
+          '</tr>';
+      }
     })
     .getDashboardData();
 }
 
 function atualizarBadges() {
   document.getElementById('badgeClientes').textContent = clientes.length;
-  document.getElementById('badgeOrcamentos').textContent = orcamentos.filter(o => o.Status === 'Pendente').length;
-  document.getElementById('badgeOS').textContent = ordensServico.filter(os => os.Status === 'Em Andamento').length;
-  document.getElementById('badgeEstoque').textContent = pecas.filter(p => p.EstoqueAtual <= p.EstoqueMinimo).length;
+
+  var orcPendentes = 0;
+  for (var i = 0; i < orcamentos.length; i++) {
+    if (orcamentos[i].Status === 'Pendente') orcPendentes++;
+  }
+  document.getElementById('badgeOrcamentos').textContent = orcPendentes;
+
+  var osAndamento = 0;
+  for (var i = 0; i < ordensServico.length; i++) {
+    if (ordensServico[i].Status === 'Em Andamento') osAndamento++;
+  }
+  document.getElementById('badgeOS').textContent = osAndamento;
+
+  var estoqueBaixo = 0;
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].EstoqueAtual <= pecas[i].EstoqueMinimo) estoqueBaixo++;
+  }
+  document.getElementById('badgeEstoque').textContent = estoqueBaixo;
 }
 
 function getStatusBadge(status) {
-  const statusClasses = {
+  var statusClasses = {
     'Pendente': 'status-pendente',
     'Aprovado': 'status-aprovado',
     'Cancelado': 'status-cancelado',
     'Em Andamento': 'status-andamento',
-    'Concluída': 'status-concluida',
+    'Concluida': 'status-concluida',
     'Cancelada': 'status-cancelado'
   };
 
-  return `<span class="status ${statusClasses[status] || ''}">${status}</span>`;
+  return '<span class="status ' + (statusClasses[status] || '') + '">' + status + '</span>';
 }
 
 // ==================== CLIENTES ====================
 
 function renderizarClientes() {
-  const tbody = document.querySelector('#tabelaClientes tbody');
+  var tbody = document.querySelector('#tabelaClientes tbody');
   tbody.innerHTML = '';
 
-  clientes.forEach(cliente => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${cliente.Nome}</td>
-        <td>${cliente.CPF_CNPJ || '-'}</td>
-        <td>${cliente.Telefone}</td>
-        <td>${cliente.Email || '-'}</td>
-        <td>${cliente.Cidade || '-'}</td>
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-primary btn-action" onclick="editarCliente(${cliente.ID})" title="Editar">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-danger btn-action" onclick="confirmarExclusaoCliente(${cliente.ID})" title="Excluir">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `;
-  });
+  for (var i = 0; i < clientes.length; i++) {
+    var cliente = clientes[i];
+    tbody.innerHTML += '<tr>' +
+      '<td>' + cliente.Nome + '</td>' +
+      '<td>' + (cliente.CPF_CNPJ || '-') + '</td>' +
+      '<td>' + cliente.Telefone + '</td>' +
+      '<td>' + (cliente.Email || '-') + '</td>' +
+      '<td>' + (cliente.Cidade || '-') + '</td>' +
+      '<td>' +
+        '<div class="btn-group">' +
+          '<button class="btn btn-sm btn-primary btn-action" onclick="editarCliente(' + cliente.ID + ')" title="Editar">' +
+            '<i class="fas fa-edit"></i>' +
+          '</button>' +
+          '<button class="btn btn-sm btn-danger btn-action" onclick="confirmarExclusaoCliente(' + cliente.ID + ')" title="Excluir">' +
+            '<i class="fas fa-trash"></i>' +
+          '</button>' +
+        '</div>' +
+      '</td>' +
+      '</tr>';
+  }
 }
 
 function filtrarClientes() {
-  const busca = document.getElementById('buscaCliente').value.toLowerCase();
-  const linhas = document.querySelectorAll('#tabelaClientes tbody tr');
+  var busca = document.getElementById('buscaCliente').value.toLowerCase();
+  var linhas = document.querySelectorAll('#tabelaClientes tbody tr');
 
-  linhas.forEach(linha => {
-    const texto = linha.textContent.toLowerCase();
-    linha.style.display = texto.includes(busca) ? '' : 'none';
-  });
+  for (var i = 0; i < linhas.length; i++) {
+    var texto = linhas[i].textContent.toLowerCase();
+    linhas[i].style.display = texto.indexOf(busca) >= 0 ? '' : 'none';
+  }
 }
 
-function abrirModalCliente(id = null) {
+function abrirModalCliente(id) {
   limparFormCliente();
   document.getElementById('modalClienteTitulo').innerHTML = '<i class="fas fa-user-plus"></i> ' + (id ? 'Editar Cliente' : 'Novo Cliente');
   abrirModal('modalCliente');
@@ -267,7 +298,13 @@ function limparFormCliente() {
 }
 
 function editarCliente(id) {
-  const cliente = clientes.find(c => c.ID == id);
+  var cliente = null;
+  for (var i = 0; i < clientes.length; i++) {
+    if (clientes[i].ID == id) {
+      cliente = clientes[i];
+      break;
+    }
+  }
   if (!cliente) return;
 
   document.getElementById('clienteId').value = cliente.ID;
@@ -286,7 +323,7 @@ function editarCliente(id) {
 }
 
 function salvarClienteForm() {
-  const dados = {
+  var dados = {
     ID: document.getElementById('clienteId').value || null,
     Nome: document.getElementById('clienteNome').value,
     CPF_CNPJ: document.getElementById('clienteCpfCnpj').value,
@@ -300,7 +337,7 @@ function salvarClienteForm() {
   };
 
   if (!dados.Nome || !dados.Telefone) {
-    showToast('Preencha os campos obrigatórios!', 'warning');
+    showToast('Preencha os campos obrigatorios!', 'warning');
     return;
   }
 
@@ -341,105 +378,107 @@ function confirmarExclusaoCliente(id) {
 }
 
 function popularSelectClientes() {
-  const selects = ['orcamentoClienteId', 'osClienteId'];
+  var selects = ['orcamentoClienteId', 'osClienteId'];
 
-  selects.forEach(selectId => {
-    const select = document.getElementById(selectId);
-    if (!select) return;
+  for (var s = 0; s < selects.length; s++) {
+    var select = document.getElementById(selects[s]);
+    if (!select) continue;
 
-    const valorAtual = select.value;
+    var valorAtual = select.value;
     select.innerHTML = '<option value="">Selecione...</option>';
 
-    clientes.forEach(cliente => {
-      select.innerHTML += `<option value="${cliente.ID}">${cliente.Nome}</option>`;
-    });
+    for (var i = 0; i < clientes.length; i++) {
+      select.innerHTML += '<option value="' + clientes[i].ID + '">' + clientes[i].Nome + '</option>';
+    }
 
     if (valorAtual) select.value = valorAtual;
-  });
+  }
 }
 
 function preencherDadosCliente(tipo) {
-  const clienteId = document.getElementById(tipo + 'ClienteId').value;
-  const cliente = clientes.find(c => c.ID == clienteId);
+  var clienteId = document.getElementById(tipo + 'ClienteId').value;
+  var cliente = null;
+  for (var i = 0; i < clientes.length; i++) {
+    if (clientes[i].ID == clienteId) {
+      cliente = clientes[i];
+      break;
+    }
+  }
 
-  const infoDiv = document.getElementById(tipo + 'ClienteInfo');
+  var infoDiv = document.getElementById(tipo + 'ClienteInfo');
   if (!cliente) {
     infoDiv.style.display = 'none';
     return;
   }
 
   infoDiv.style.display = 'block';
-  document.getElementById(tipo + 'ClienteEmail').textContent = cliente.Email || 'Não informado';
+  document.getElementById(tipo + 'ClienteEmail').textContent = cliente.Email || 'Nao informado';
   document.getElementById(tipo + 'ClienteTelefone').textContent = cliente.Telefone;
 
-  if (document.getElementById(tipo + 'ClienteEndereco')) {
-    document.getElementById(tipo + 'ClienteEndereco').textContent =
-      [cliente.Endereco, cliente.Cidade, cliente.Estado].filter(Boolean).join(', ') || 'Não informado';
+  var enderecoEl = document.getElementById(tipo + 'ClienteEndereco');
+  if (enderecoEl) {
+    var partes = [];
+    if (cliente.Endereco) partes.push(cliente.Endereco);
+    if (cliente.Cidade) partes.push(cliente.Cidade);
+    if (cliente.Estado) partes.push(cliente.Estado);
+    enderecoEl.textContent = partes.join(', ') || 'Nao informado';
   }
 }
 
-// ==================== ORÇAMENTOS ====================
+// ==================== ORCAMENTOS ====================
 
 function renderizarOrcamentos() {
-  const tbody = document.querySelector('#tabelaOrcamentos tbody');
+  var tbody = document.querySelector('#tabelaOrcamentos tbody');
   tbody.innerHTML = '';
 
-  orcamentos.forEach(orc => {
-    let acoes = `
-      <button class="btn btn-sm btn-primary btn-action" onclick="visualizarOrcamento(${orc.ID})" title="Visualizar">
-        <i class="fas fa-eye"></i>
-      </button>
-    `;
+  for (var i = 0; i < orcamentos.length; i++) {
+    var orc = orcamentos[i];
+    var acoes = '<button class="btn btn-sm btn-primary btn-action" onclick="visualizarOrcamento(' + orc.ID + ')" title="Visualizar">' +
+      '<i class="fas fa-eye"></i></button>';
 
     if (orc.Status === 'Pendente') {
-      acoes += `
-        <button class="btn btn-sm btn-success btn-action" onclick="abrirModalAprovar(${orc.ID})" title="Aprovar">
-          <i class="fas fa-check"></i>
-        </button>
-        <button class="btn btn-sm btn-warning btn-action" onclick="editarOrcamento(${orc.ID})" title="Editar">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(${orc.ID}, 'ORCAMENTO')" title="Cancelar">
-          <i class="fas fa-times"></i>
-        </button>
-      `;
+      acoes += '<button class="btn btn-sm btn-success btn-action" onclick="abrirModalAprovar(' + orc.ID + ')" title="Aprovar">' +
+        '<i class="fas fa-check"></i></button>' +
+        '<button class="btn btn-sm btn-warning btn-action" onclick="editarOrcamento(' + orc.ID + ')" title="Editar">' +
+        '<i class="fas fa-edit"></i></button>' +
+        '<button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(' + orc.ID + ', \'ORCAMENTO\')" title="Cancelar">' +
+        '<i class="fas fa-times"></i></button>';
     }
 
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${orc.Numero}</strong></td>
-        <td>${orc.ClienteNome}</td>
-        <td>${orc.DataCriacao}</td>
-        <td>${orc.DataValidade}</td>
-        <td>R$ ${formatarMoeda(orc.TotalGeral)}</td>
-        <td>${getStatusBadge(orc.Status)}</td>
-        <td><div class="btn-group">${acoes}</div></td>
-      </tr>
-    `;
-  });
+    tbody.innerHTML += '<tr>' +
+      '<td><strong>' + orc.Numero + '</strong></td>' +
+      '<td>' + orc.ClienteNome + '</td>' +
+      '<td>' + orc.DataCriacao + '</td>' +
+      '<td>' + orc.DataValidade + '</td>' +
+      '<td>R$ ' + formatarMoeda(orc.TotalGeral) + '</td>' +
+      '<td>' + getStatusBadge(orc.Status) + '</td>' +
+      '<td><div class="btn-group">' + acoes + '</div></td>' +
+      '</tr>';
+  }
 }
 
 function filtrarOrcamentos() {
-  const busca = document.getElementById('buscaOrcamento').value.toLowerCase();
-  const status = document.getElementById('filtroStatusOrc').value;
-  const linhas = document.querySelectorAll('#tabelaOrcamentos tbody tr');
+  var busca = document.getElementById('buscaOrcamento').value.toLowerCase();
+  var status = document.getElementById('filtroStatusOrc').value;
+  var linhas = document.querySelectorAll('#tabelaOrcamentos tbody tr');
 
-  linhas.forEach(linha => {
-    const texto = linha.textContent.toLowerCase();
-    const statusLinha = linha.querySelector('.status')?.textContent || '';
+  for (var i = 0; i < linhas.length; i++) {
+    var texto = linhas[i].textContent.toLowerCase();
+    var statusEl = linhas[i].querySelector('.status');
+    var statusLinha = statusEl ? statusEl.textContent : '';
 
-    const matchBusca = texto.includes(busca);
-    const matchStatus = !status || statusLinha === status;
+    var matchBusca = texto.indexOf(busca) >= 0;
+    var matchStatus = !status || statusLinha === status;
 
-    linha.style.display = matchBusca && matchStatus ? '' : 'none';
-  });
+    linhas[i].style.display = matchBusca && matchStatus ? '' : 'none';
+  }
 }
 
 function abrirModalOrcamento() {
   limparFormOrcamento();
   popularSelectClientes();
   popularSelectFormasPagamento();
-  document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Novo Orçamento';
+  document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Novo Orcamento';
   document.getElementById('orcamentoGarantia').value = configuracoes.GARANTIA_PADRAO || '90 dias';
   abrirModal('modalOrcamento');
 }
@@ -461,7 +500,7 @@ function editarOrcamento(id) {
     .withSuccessHandler(function(orc) {
       hideLoading();
       if (!orc) {
-        showToast('Orçamento não encontrado!', 'error');
+        showToast('Orcamento nao encontrado!', 'error');
         return;
       }
 
@@ -474,19 +513,19 @@ function editarOrcamento(id) {
       document.getElementById('orcamentoFormaPagamento').value = orc.FormaPagamento || '';
       document.getElementById('orcamentoObservacoes').value = orc.Observacoes || '';
 
-      // Carregar itens
-      const tbody = document.querySelector('#tabelaItensOrcamento tbody');
+      var tbody = document.querySelector('#tabelaItensOrcamento tbody');
       tbody.innerHTML = '';
       contadorItemOrcamento = 0;
 
       if (orc.Itens) {
-        orc.Itens.forEach(item => {
+        for (var i = 0; i < orc.Itens.length; i++) {
+          var item = orc.Itens[i];
           adicionarLinhaItemOrcamento(item.Tipo, item.PecaID, item.Descricao, item.Quantidade, item.PrecoUnitario);
-        });
+        }
       }
 
       calcularTotalOrcamento();
-      document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Orçamento';
+      document.getElementById('modalOrcamentoTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Orcamento';
       abrirModal('modalOrcamento');
     })
     .getOrcamentoById(id);
@@ -502,43 +541,48 @@ function adicionarItemOrcamento(tipo) {
 
 function adicionarLinhaItemOrcamento(tipo, pecaId, descricao, quantidade, precoUnit) {
   contadorItemOrcamento++;
-  const tbody = document.querySelector('#tabelaItensOrcamento tbody');
+  var tbody = document.querySelector('#tabelaItensOrcamento tbody');
 
-  const tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peça</span>' : '<span class="status status-andamento">Serviço</span>';
+  var tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peca</span>' : '<span class="status status-andamento">Servico</span>';
 
-  tbody.innerHTML += `
-    <tr id="itemOrc${contadorItemOrcamento}" data-tipo="${tipo}" data-peca-id="${pecaId || ''}">
-      <td>${tipoLabel}</td>
-      <td><input type="text" class="form-control" value="${descricao}" onchange="calcularTotalOrcamento()"></td>
-      <td style="width:80px"><input type="number" class="form-control" value="${quantidade}" min="1" onchange="calcularTotalOrcamento()"></td>
-      <td style="width:120px"><input type="number" class="form-control" value="${precoUnit}" step="0.01" onchange="calcularTotalOrcamento()"></td>
-      <td style="width:120px"><input type="text" class="form-control" value="${formatarMoeda(quantidade * precoUnit)}" readonly></td>
-      <td style="width:50px">
-        <button class="btn btn-sm btn-danger btn-action" onclick="removerItemOrcamento(${contadorItemOrcamento})">
-          <i class="fas fa-trash"></i>
-        </button>
-      </td>
-    </tr>
-  `;
+  var tr = document.createElement('tr');
+  tr.id = 'itemOrc' + contadorItemOrcamento;
+  tr.setAttribute('data-tipo', tipo);
+  tr.setAttribute('data-peca-id', pecaId || '');
 
+  tr.innerHTML = '<td>' + tipoLabel + '</td>' +
+    '<td><input type="text" class="form-control" value="' + descricao + '" onchange="calcularTotalOrcamento()"></td>' +
+    '<td style="width:80px"><input type="number" class="form-control" value="' + quantidade + '" min="1" onchange="calcularTotalOrcamento()"></td>' +
+    '<td style="width:120px"><input type="number" class="form-control" value="' + precoUnit + '" step="0.01" onchange="calcularTotalOrcamento()"></td>' +
+    '<td style="width:120px"><input type="text" class="form-control" value="' + formatarMoeda(quantidade * precoUnit) + '" readonly></td>' +
+    '<td style="width:50px">' +
+      '<button class="btn btn-sm btn-danger btn-action" onclick="removerItemOrcamento(' + contadorItemOrcamento + ')">' +
+        '<i class="fas fa-trash"></i>' +
+      '</button>' +
+    '</td>';
+
+  tbody.appendChild(tr);
   calcularTotalOrcamento();
 }
 
 function removerItemOrcamento(id) {
-  document.getElementById('itemOrc' + id).remove();
+  var el = document.getElementById('itemOrc' + id);
+  if (el) el.parentNode.removeChild(el);
   calcularTotalOrcamento();
 }
 
 function calcularTotalOrcamento() {
-  let totalPecas = 0;
-  let totalMaoObra = 0;
+  var totalPecas = 0;
+  var totalMaoObra = 0;
 
-  document.querySelectorAll('#tabelaItensOrcamento tbody tr').forEach(tr => {
-    const tipo = tr.dataset.tipo;
-    const inputs = tr.querySelectorAll('input');
-    const qtd = parseFloat(inputs[1].value) || 0;
-    const preco = parseFloat(inputs[2].value) || 0;
-    const total = qtd * preco;
+  var linhas = document.querySelectorAll('#tabelaItensOrcamento tbody tr');
+  for (var i = 0; i < linhas.length; i++) {
+    var tr = linhas[i];
+    var tipo = tr.getAttribute('data-tipo');
+    var inputs = tr.querySelectorAll('input');
+    var qtd = parseFloat(inputs[1].value) || 0;
+    var preco = parseFloat(inputs[2].value) || 0;
+    var total = qtd * preco;
 
     inputs[3].value = formatarMoeda(total);
 
@@ -547,10 +591,10 @@ function calcularTotalOrcamento() {
     } else {
       totalMaoObra += total;
     }
-  });
+  }
 
-  const desconto = parseFloat(document.getElementById('orcamentoDesconto').value) || 0;
-  const totalGeral = totalPecas + totalMaoObra - desconto;
+  var desconto = parseFloat(document.getElementById('orcamentoDesconto').value) || 0;
+  var totalGeral = totalPecas + totalMaoObra - desconto;
 
   document.getElementById('orcamentoTotalPecas').value = formatarMoeda(totalPecas);
   document.getElementById('orcamentoTotalMaoObra').value = formatarMoeda(totalMaoObra);
@@ -558,33 +602,34 @@ function calcularTotalOrcamento() {
 }
 
 function salvarOrcamentoForm() {
-  const clienteId = document.getElementById('orcamentoClienteId').value;
+  var clienteId = document.getElementById('orcamentoClienteId').value;
   if (!clienteId) {
     showToast('Selecione um cliente!', 'warning');
     return;
   }
 
-  const descricao = document.getElementById('orcamentoDescricao').value;
+  var descricao = document.getElementById('orcamentoDescricao').value;
   if (!descricao) {
-    showToast('Preencha a descrição do serviço!', 'warning');
+    showToast('Preencha a descricao do servico!', 'warning');
     return;
   }
 
-  // Coletar itens
-  const itens = [];
-  document.querySelectorAll('#tabelaItensOrcamento tbody tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
+  var itens = [];
+  var linhas = document.querySelectorAll('#tabelaItensOrcamento tbody tr');
+  for (var i = 0; i < linhas.length; i++) {
+    var tr = linhas[i];
+    var inputs = tr.querySelectorAll('input');
     itens.push({
-      Tipo: tr.dataset.tipo,
-      PecaID: tr.dataset.pecaId || '',
+      Tipo: tr.getAttribute('data-tipo'),
+      PecaID: tr.getAttribute('data-peca-id') || '',
       Descricao: inputs[0].value,
       Quantidade: parseFloat(inputs[1].value) || 0,
       PrecoUnitario: parseFloat(inputs[2].value) || 0,
       PrecoTotal: parseMoeda(inputs[3].value)
     });
-  });
+  }
 
-  const dados = {
+  var dados = {
     ID: document.getElementById('orcamentoId').value || null,
     ClienteID: clienteId,
     Descricao: descricao,
@@ -624,8 +669,8 @@ function abrirModalAprovar(id) {
 }
 
 function confirmarAprovacao() {
-  const id = document.getElementById('aprovarOrcamentoId').value;
-  const dataPrevista = document.getElementById('aprovarDataPrevista').value;
+  var id = document.getElementById('aprovarOrcamentoId').value;
+  var dataPrevista = document.getElementById('aprovarDataPrevista').value;
 
   showLoading();
   google.script.run
@@ -654,9 +699,9 @@ function abrirModalCancelar(id, tipo) {
 }
 
 function confirmarCancelamento() {
-  const id = document.getElementById('cancelarId').value;
-  const tipo = document.getElementById('cancelarTipo').value;
-  const motivo = document.getElementById('cancelarMotivo').value;
+  var id = document.getElementById('cancelarId').value;
+  var tipo = document.getElementById('cancelarTipo').value;
+  var motivo = document.getElementById('cancelarMotivo').value;
 
   if (!motivo) {
     showToast('Informe o motivo do cancelamento!', 'warning');
@@ -665,7 +710,7 @@ function confirmarCancelamento() {
 
   showLoading();
 
-  const successHandler = function(result) {
+  var successHandler = function(result) {
     hideLoading();
     if (result.success) {
       showToast(result.message, 'success');
@@ -676,7 +721,7 @@ function confirmarCancelamento() {
     }
   };
 
-  const failureHandler = function(error) {
+  var failureHandler = function(error) {
     hideLoading();
     showToast('Erro: ' + error.message, 'error');
   };
@@ -700,116 +745,108 @@ function visualizarOrcamento(id) {
     .withSuccessHandler(function(orc) {
       hideLoading();
       if (!orc) {
-        showToast('Orçamento não encontrado!', 'error');
+        showToast('Orcamento nao encontrado!', 'error');
         return;
       }
 
-      let itensHtml = '';
+      var itensHtml = '';
       if (orc.Itens && orc.Itens.length > 0) {
-        itensHtml = '<table class="table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
-        orc.Itens.forEach(item => {
-          itensHtml += `<tr><td>${item.Descricao}</td><td>${item.Quantidade}</td><td>R$ ${formatarMoeda(item.PrecoUnitario)}</td><td>R$ ${formatarMoeda(item.PrecoTotal)}</td></tr>`;
-        });
+        itensHtml = '<table class="table"><thead><tr><th>Descricao</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
+        for (var i = 0; i < orc.Itens.length; i++) {
+          var item = orc.Itens[i];
+          itensHtml += '<tr><td>' + item.Descricao + '</td><td>' + item.Quantidade + '</td><td>R$ ' + formatarMoeda(item.PrecoUnitario) + '</td><td>R$ ' + formatarMoeda(item.PrecoTotal) + '</td></tr>';
+        }
         itensHtml += '</tbody></table>';
       }
 
-      document.getElementById('conteudoDocumento').innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-          <h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ${configuracoes.EMPRESA_NOME || 'Refrigeração Campo Frio'}</h2>
-          <p>${configuracoes.EMPRESA_ENDERECO || ''}</p>
-          <p>${configuracoes.EMPRESA_TELEFONE || ''} | ${configuracoes.EMPRESA_EMAIL || ''}</p>
-        </div>
-        <hr>
-        <h3>ORÇAMENTO ${orc.Numero}</h3>
-        <div class="info-grid">
-          <div class="info-item"><label>Data</label><span>${orc.DataCriacao}</span></div>
-          <div class="info-item"><label>Validade</label><span>${orc.DataValidade}</span></div>
-          <div class="info-item"><label>Cliente</label><span>${orc.ClienteNome}</span></div>
-          <div class="info-item"><label>Status</label><span>${orc.Status}</span></div>
-        </div>
-        <h4>Descrição</h4>
-        <p>${orc.Descricao}</p>
-        <h4>Itens</h4>
-        ${itensHtml}
-        <div class="info-grid">
-          <div class="info-item"><label>Total Peças</label><span>R$ ${formatarMoeda(orc.TotalPecas)}</span></div>
-          <div class="info-item"><label>Total Mão de Obra</label><span>R$ ${formatarMoeda(orc.TotalMaoObra)}</span></div>
-          <div class="info-item"><label>Desconto</label><span>R$ ${formatarMoeda(orc.Desconto)}</span></div>
-          <div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ${formatarMoeda(orc.TotalGeral)}</span></div>
-        </div>
-        <p><strong>Garantia:</strong> ${orc.Garantia || 'Não informada'}</p>
-        <p><strong>Forma de Pagamento:</strong> ${orc.FormaPagamento || 'A combinar'}</p>
-        ${orc.Observacoes ? `<p><strong>Observações:</strong> ${orc.Observacoes}</p>` : ''}
-      `;
+      document.getElementById('conteudoDocumento').innerHTML =
+        '<div style="text-align:center; margin-bottom:20px;">' +
+          '<h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ' + (configuracoes.EMPRESA_NOME || 'Refrigeracao Campo Frio') + '</h2>' +
+          '<p>' + (configuracoes.EMPRESA_ENDERECO || '') + '</p>' +
+          '<p>' + (configuracoes.EMPRESA_TELEFONE || '') + ' | ' + (configuracoes.EMPRESA_EMAIL || '') + '</p>' +
+        '</div>' +
+        '<hr>' +
+        '<h3>ORCAMENTO ' + orc.Numero + '</h3>' +
+        '<div class="info-grid">' +
+          '<div class="info-item"><label>Data</label><span>' + orc.DataCriacao + '</span></div>' +
+          '<div class="info-item"><label>Validade</label><span>' + orc.DataValidade + '</span></div>' +
+          '<div class="info-item"><label>Cliente</label><span>' + orc.ClienteNome + '</span></div>' +
+          '<div class="info-item"><label>Status</label><span>' + orc.Status + '</span></div>' +
+        '</div>' +
+        '<h4>Descricao</h4>' +
+        '<p>' + orc.Descricao + '</p>' +
+        '<h4>Itens</h4>' +
+        itensHtml +
+        '<div class="info-grid">' +
+          '<div class="info-item"><label>Total Pecas</label><span>R$ ' + formatarMoeda(orc.TotalPecas) + '</span></div>' +
+          '<div class="info-item"><label>Total Mao de Obra</label><span>R$ ' + formatarMoeda(orc.TotalMaoObra) + '</span></div>' +
+          '<div class="info-item"><label>Desconto</label><span>R$ ' + formatarMoeda(orc.Desconto) + '</span></div>' +
+          '<div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ' + formatarMoeda(orc.TotalGeral) + '</span></div>' +
+        '</div>' +
+        '<p><strong>Garantia:</strong> ' + (orc.Garantia || 'Nao informada') + '</p>' +
+        '<p><strong>Forma de Pagamento:</strong> ' + (orc.FormaPagamento || 'A combinar') + '</p>' +
+        (orc.Observacoes ? '<p><strong>Observacoes:</strong> ' + orc.Observacoes + '</p>' : '');
 
-      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Orçamento ' + orc.Numero;
+      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Orcamento ' + orc.Numero;
       abrirModal('modalVisualizarDoc');
     })
     .getOrcamentoById(id);
 }
 
-// ==================== ORDENS DE SERVIÇO ====================
+// ==================== ORDENS DE SERVICO ====================
 
 function renderizarOS() {
-  const tbody = document.querySelector('#tabelaOS tbody');
+  var tbody = document.querySelector('#tabelaOS tbody');
   tbody.innerHTML = '';
 
-  ordensServico.forEach(os => {
-    let acoes = `
-      <button class="btn btn-sm btn-primary btn-action" onclick="visualizarOS(${os.ID})" title="Visualizar">
-        <i class="fas fa-eye"></i>
-      </button>
-    `;
+  for (var i = 0; i < ordensServico.length; i++) {
+    var os = ordensServico[i];
+    var acoes = '<button class="btn btn-sm btn-primary btn-action" onclick="visualizarOS(' + os.ID + ')" title="Visualizar">' +
+      '<i class="fas fa-eye"></i></button>';
 
     if (os.Status === 'Em Andamento') {
-      acoes += `
-        <button class="btn btn-sm btn-success btn-action" onclick="abrirModalConcluir(${os.ID})" title="Concluir">
-          <i class="fas fa-check-double"></i>
-        </button>
-        <button class="btn btn-sm btn-warning btn-action" onclick="editarOS(${os.ID})" title="Editar">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(${os.ID}, 'OS')" title="Cancelar">
-          <i class="fas fa-times"></i>
-        </button>
-      `;
+      acoes += '<button class="btn btn-sm btn-success btn-action" onclick="abrirModalConcluir(' + os.ID + ')" title="Concluir">' +
+        '<i class="fas fa-check-double"></i></button>' +
+        '<button class="btn btn-sm btn-warning btn-action" onclick="editarOS(' + os.ID + ')" title="Editar">' +
+        '<i class="fas fa-edit"></i></button>' +
+        '<button class="btn btn-sm btn-danger btn-action" onclick="abrirModalCancelar(' + os.ID + ', \'OS\')" title="Cancelar">' +
+        '<i class="fas fa-times"></i></button>';
     }
 
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${os.Numero}</strong></td>
-        <td>${os.ClienteNome}</td>
-        <td>${os.DataCriacao}</td>
-        <td>${os.DataPrevista || '-'}</td>
-        <td>R$ ${formatarMoeda(os.TotalGeral)}</td>
-        <td>${getStatusBadge(os.Status)}</td>
-        <td><div class="btn-group">${acoes}</div></td>
-      </tr>
-    `;
-  });
+    tbody.innerHTML += '<tr>' +
+      '<td><strong>' + os.Numero + '</strong></td>' +
+      '<td>' + os.ClienteNome + '</td>' +
+      '<td>' + os.DataCriacao + '</td>' +
+      '<td>' + (os.DataPrevista || '-') + '</td>' +
+      '<td>R$ ' + formatarMoeda(os.TotalGeral) + '</td>' +
+      '<td>' + getStatusBadge(os.Status) + '</td>' +
+      '<td><div class="btn-group">' + acoes + '</div></td>' +
+      '</tr>';
+  }
 }
 
 function filtrarOS() {
-  const busca = document.getElementById('buscaOS').value.toLowerCase();
-  const status = document.getElementById('filtroStatusOS').value;
-  const linhas = document.querySelectorAll('#tabelaOS tbody tr');
+  var busca = document.getElementById('buscaOS').value.toLowerCase();
+  var status = document.getElementById('filtroStatusOS').value;
+  var linhas = document.querySelectorAll('#tabelaOS tbody tr');
 
-  linhas.forEach(linha => {
-    const texto = linha.textContent.toLowerCase();
-    const statusLinha = linha.querySelector('.status')?.textContent || '';
+  for (var i = 0; i < linhas.length; i++) {
+    var texto = linhas[i].textContent.toLowerCase();
+    var statusEl = linhas[i].querySelector('.status');
+    var statusLinha = statusEl ? statusEl.textContent : '';
 
-    const matchBusca = texto.includes(busca);
-    const matchStatus = !status || statusLinha === status;
+    var matchBusca = texto.indexOf(busca) >= 0;
+    var matchStatus = !status || statusLinha === status;
 
-    linha.style.display = matchBusca && matchStatus ? '' : 'none';
-  });
+    linhas[i].style.display = matchBusca && matchStatus ? '' : 'none';
+  }
 }
 
 function abrirModalOS() {
   limparFormOS();
   popularSelectClientes();
   popularSelectFormasPagamento();
-  document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-tools"></i> Nova Ordem de Serviço';
+  document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-tools"></i> Nova Ordem de Servico';
   document.getElementById('osGarantia').value = configuracoes.GARANTIA_PADRAO || '90 dias';
   abrirModal('modalOS');
 }
@@ -831,7 +868,7 @@ function editarOS(id) {
     .withSuccessHandler(function(os) {
       hideLoading();
       if (!os) {
-        showToast('OS não encontrada!', 'error');
+        showToast('OS nao encontrada!', 'error');
         return;
       }
 
@@ -846,19 +883,19 @@ function editarOS(id) {
       document.getElementById('osFormaPagamento').value = os.FormaPagamento || '';
       document.getElementById('osObservacoes').value = os.Observacoes || '';
 
-      // Carregar itens
-      const tbody = document.querySelector('#tabelaItensOS tbody');
+      var tbody = document.querySelector('#tabelaItensOS tbody');
       tbody.innerHTML = '';
       contadorItemOS = 0;
 
       if (os.Itens) {
-        os.Itens.forEach(item => {
+        for (var i = 0; i < os.Itens.length; i++) {
+          var item = os.Itens[i];
           adicionarLinhaItemOS(item.Tipo, item.PecaID, item.Descricao, item.Quantidade, item.PrecoUnitario);
-        });
+        }
       }
 
       calcularTotalOS();
-      document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Ordem de Serviço';
+      document.getElementById('modalOSTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Ordem de Servico';
       abrirModal('modalOS');
     })
     .getOrdemServicoById(id);
@@ -874,43 +911,48 @@ function adicionarItemOS(tipo) {
 
 function adicionarLinhaItemOS(tipo, pecaId, descricao, quantidade, precoUnit) {
   contadorItemOS++;
-  const tbody = document.querySelector('#tabelaItensOS tbody');
+  var tbody = document.querySelector('#tabelaItensOS tbody');
 
-  const tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peça</span>' : '<span class="status status-andamento">Serviço</span>';
+  var tipoLabel = tipo === 'Peca' ? '<span class="status status-pendente">Peca</span>' : '<span class="status status-andamento">Servico</span>';
 
-  tbody.innerHTML += `
-    <tr id="itemOS${contadorItemOS}" data-tipo="${tipo}" data-peca-id="${pecaId || ''}">
-      <td>${tipoLabel}</td>
-      <td><input type="text" class="form-control" value="${descricao}" onchange="calcularTotalOS()"></td>
-      <td style="width:80px"><input type="number" class="form-control" value="${quantidade}" min="1" onchange="calcularTotalOS()"></td>
-      <td style="width:120px"><input type="number" class="form-control" value="${precoUnit}" step="0.01" onchange="calcularTotalOS()"></td>
-      <td style="width:120px"><input type="text" class="form-control" value="${formatarMoeda(quantidade * precoUnit)}" readonly></td>
-      <td style="width:50px">
-        <button class="btn btn-sm btn-danger btn-action" onclick="removerItemOS(${contadorItemOS})">
-          <i class="fas fa-trash"></i>
-        </button>
-      </td>
-    </tr>
-  `;
+  var tr = document.createElement('tr');
+  tr.id = 'itemOS' + contadorItemOS;
+  tr.setAttribute('data-tipo', tipo);
+  tr.setAttribute('data-peca-id', pecaId || '');
 
+  tr.innerHTML = '<td>' + tipoLabel + '</td>' +
+    '<td><input type="text" class="form-control" value="' + descricao + '" onchange="calcularTotalOS()"></td>' +
+    '<td style="width:80px"><input type="number" class="form-control" value="' + quantidade + '" min="1" onchange="calcularTotalOS()"></td>' +
+    '<td style="width:120px"><input type="number" class="form-control" value="' + precoUnit + '" step="0.01" onchange="calcularTotalOS()"></td>' +
+    '<td style="width:120px"><input type="text" class="form-control" value="' + formatarMoeda(quantidade * precoUnit) + '" readonly></td>' +
+    '<td style="width:50px">' +
+      '<button class="btn btn-sm btn-danger btn-action" onclick="removerItemOS(' + contadorItemOS + ')">' +
+        '<i class="fas fa-trash"></i>' +
+      '</button>' +
+    '</td>';
+
+  tbody.appendChild(tr);
   calcularTotalOS();
 }
 
 function removerItemOS(id) {
-  document.getElementById('itemOS' + id).remove();
+  var el = document.getElementById('itemOS' + id);
+  if (el) el.parentNode.removeChild(el);
   calcularTotalOS();
 }
 
 function calcularTotalOS() {
-  let totalPecas = 0;
-  let totalMaoObra = 0;
+  var totalPecas = 0;
+  var totalMaoObra = 0;
 
-  document.querySelectorAll('#tabelaItensOS tbody tr').forEach(tr => {
-    const tipo = tr.dataset.tipo;
-    const inputs = tr.querySelectorAll('input');
-    const qtd = parseFloat(inputs[1].value) || 0;
-    const preco = parseFloat(inputs[2].value) || 0;
-    const total = qtd * preco;
+  var linhas = document.querySelectorAll('#tabelaItensOS tbody tr');
+  for (var i = 0; i < linhas.length; i++) {
+    var tr = linhas[i];
+    var tipo = tr.getAttribute('data-tipo');
+    var inputs = tr.querySelectorAll('input');
+    var qtd = parseFloat(inputs[1].value) || 0;
+    var preco = parseFloat(inputs[2].value) || 0;
+    var total = qtd * preco;
 
     inputs[3].value = formatarMoeda(total);
 
@@ -919,10 +961,10 @@ function calcularTotalOS() {
     } else {
       totalMaoObra += total;
     }
-  });
+  }
 
-  const desconto = parseFloat(document.getElementById('osDesconto').value) || 0;
-  const totalGeral = totalPecas + totalMaoObra - desconto;
+  var desconto = parseFloat(document.getElementById('osDesconto').value) || 0;
+  var totalGeral = totalPecas + totalMaoObra - desconto;
 
   document.getElementById('osTotalPecas').value = formatarMoeda(totalPecas);
   document.getElementById('osTotalMaoObra').value = formatarMoeda(totalMaoObra);
@@ -930,33 +972,34 @@ function calcularTotalOS() {
 }
 
 function salvarOSForm() {
-  const clienteId = document.getElementById('osClienteId').value;
+  var clienteId = document.getElementById('osClienteId').value;
   if (!clienteId) {
     showToast('Selecione um cliente!', 'warning');
     return;
   }
 
-  const descricao = document.getElementById('osDescricao').value;
+  var descricao = document.getElementById('osDescricao').value;
   if (!descricao) {
-    showToast('Preencha a descrição do serviço!', 'warning');
+    showToast('Preencha a descricao do servico!', 'warning');
     return;
   }
 
-  // Coletar itens
-  const itens = [];
-  document.querySelectorAll('#tabelaItensOS tbody tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
+  var itens = [];
+  var linhas = document.querySelectorAll('#tabelaItensOS tbody tr');
+  for (var i = 0; i < linhas.length; i++) {
+    var tr = linhas[i];
+    var inputs = tr.querySelectorAll('input');
     itens.push({
-      Tipo: tr.dataset.tipo,
-      PecaID: tr.dataset.pecaId || '',
+      Tipo: tr.getAttribute('data-tipo'),
+      PecaID: tr.getAttribute('data-peca-id') || '',
       Descricao: inputs[0].value,
       Quantidade: parseFloat(inputs[1].value) || 0,
       PrecoUnitario: parseFloat(inputs[2].value) || 0,
       PrecoTotal: parseMoeda(inputs[3].value)
     });
-  });
+  }
 
-  const dados = {
+  var dados = {
     ID: document.getElementById('osId').value || null,
     ClienteID: clienteId,
     DataPrevista: document.getElementById('osDataPrevista').value,
@@ -998,8 +1041,8 @@ function abrirModalConcluir(id) {
 }
 
 function confirmarConclusao() {
-  const id = document.getElementById('concluirOSId').value;
-  const observacoes = document.getElementById('concluirObservacoes').value;
+  var id = document.getElementById('concluirOSId').value;
+  var observacoes = document.getElementById('concluirObservacoes').value;
 
   showLoading();
   google.script.run
@@ -1026,106 +1069,105 @@ function visualizarOS(id) {
     .withSuccessHandler(function(os) {
       hideLoading();
       if (!os) {
-        showToast('OS não encontrada!', 'error');
+        showToast('OS nao encontrada!', 'error');
         return;
       }
 
-      let itensHtml = '';
+      var itensHtml = '';
       if (os.Itens && os.Itens.length > 0) {
-        itensHtml = '<table class="table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
-        os.Itens.forEach(item => {
-          itensHtml += `<tr><td>${item.Descricao}</td><td>${item.Quantidade}</td><td>R$ ${formatarMoeda(item.PrecoUnitario)}</td><td>R$ ${formatarMoeda(item.PrecoTotal)}</td></tr>`;
-        });
+        itensHtml = '<table class="table"><thead><tr><th>Descricao</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>';
+        for (var i = 0; i < os.Itens.length; i++) {
+          var item = os.Itens[i];
+          itensHtml += '<tr><td>' + item.Descricao + '</td><td>' + item.Quantidade + '</td><td>R$ ' + formatarMoeda(item.PrecoUnitario) + '</td><td>R$ ' + formatarMoeda(item.PrecoTotal) + '</td></tr>';
+        }
         itensHtml += '</tbody></table>';
       }
 
-      document.getElementById('conteudoDocumento').innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-          <h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ${configuracoes.EMPRESA_NOME || 'Refrigeração Campo Frio'}</h2>
-          <p>${configuracoes.EMPRESA_ENDERECO || ''}</p>
-          <p>${configuracoes.EMPRESA_TELEFONE || ''} | ${configuracoes.EMPRESA_EMAIL || ''}</p>
-        </div>
-        <hr>
-        <h3>ORDEM DE SERVIÇO ${os.Numero}</h3>
-        <div class="info-grid">
-          <div class="info-item"><label>Data Criação</label><span>${os.DataCriacao}</span></div>
-          <div class="info-item"><label>Data Prevista</label><span>${os.DataPrevista || '-'}</span></div>
-          <div class="info-item"><label>Cliente</label><span>${os.ClienteNome}</span></div>
-          <div class="info-item"><label>Status</label><span>${os.Status}</span></div>
-          <div class="info-item"><label>Técnico</label><span>${os.Tecnico || '-'}</span></div>
-          ${os.DataConclusao ? `<div class="info-item"><label>Data Conclusão</label><span>${os.DataConclusao}</span></div>` : ''}
-        </div>
-        <h4>Descrição</h4>
-        <p>${os.Descricao}</p>
-        <h4>Itens</h4>
-        ${itensHtml}
-        <div class="info-grid">
-          <div class="info-item"><label>Total Peças</label><span>R$ ${formatarMoeda(os.TotalPecas)}</span></div>
-          <div class="info-item"><label>Total Mão de Obra</label><span>R$ ${formatarMoeda(os.TotalMaoObra)}</span></div>
-          <div class="info-item"><label>Desconto</label><span>R$ ${formatarMoeda(os.Desconto)}</span></div>
-          <div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ${formatarMoeda(os.TotalGeral)}</span></div>
-        </div>
-        <p><strong>Garantia:</strong> ${os.Garantia || 'Não informada'}</p>
-        <p><strong>Forma de Pagamento:</strong> ${os.FormaPagamento || 'A combinar'}</p>
-        ${os.Observacoes ? `<p><strong>Observações:</strong> ${os.Observacoes}</p>` : ''}
-        ${os.ObsConclusao ? `<p><strong>Obs. Conclusão:</strong> ${os.ObsConclusao}</p>` : ''}
-      `;
+      document.getElementById('conteudoDocumento').innerHTML =
+        '<div style="text-align:center; margin-bottom:20px;">' +
+          '<h2><i class="fas fa-snowflake" style="color:var(--primary)"></i> ' + (configuracoes.EMPRESA_NOME || 'Refrigeracao Campo Frio') + '</h2>' +
+          '<p>' + (configuracoes.EMPRESA_ENDERECO || '') + '</p>' +
+          '<p>' + (configuracoes.EMPRESA_TELEFONE || '') + ' | ' + (configuracoes.EMPRESA_EMAIL || '') + '</p>' +
+        '</div>' +
+        '<hr>' +
+        '<h3>ORDEM DE SERVICO ' + os.Numero + '</h3>' +
+        '<div class="info-grid">' +
+          '<div class="info-item"><label>Data Criacao</label><span>' + os.DataCriacao + '</span></div>' +
+          '<div class="info-item"><label>Data Prevista</label><span>' + (os.DataPrevista || '-') + '</span></div>' +
+          '<div class="info-item"><label>Cliente</label><span>' + os.ClienteNome + '</span></div>' +
+          '<div class="info-item"><label>Status</label><span>' + os.Status + '</span></div>' +
+          '<div class="info-item"><label>Tecnico</label><span>' + (os.Tecnico || '-') + '</span></div>' +
+          (os.DataConclusao ? '<div class="info-item"><label>Data Conclusao</label><span>' + os.DataConclusao + '</span></div>' : '') +
+        '</div>' +
+        '<h4>Descricao</h4>' +
+        '<p>' + os.Descricao + '</p>' +
+        '<h4>Itens</h4>' +
+        itensHtml +
+        '<div class="info-grid">' +
+          '<div class="info-item"><label>Total Pecas</label><span>R$ ' + formatarMoeda(os.TotalPecas) + '</span></div>' +
+          '<div class="info-item"><label>Total Mao de Obra</label><span>R$ ' + formatarMoeda(os.TotalMaoObra) + '</span></div>' +
+          '<div class="info-item"><label>Desconto</label><span>R$ ' + formatarMoeda(os.Desconto) + '</span></div>' +
+          '<div class="info-item" style="background:var(--success);color:white;"><label style="color:white">TOTAL GERAL</label><span>R$ ' + formatarMoeda(os.TotalGeral) + '</span></div>' +
+        '</div>' +
+        '<p><strong>Garantia:</strong> ' + (os.Garantia || 'Nao informada') + '</p>' +
+        '<p><strong>Forma de Pagamento:</strong> ' + (os.FormaPagamento || 'A combinar') + '</p>' +
+        (os.Observacoes ? '<p><strong>Observacoes:</strong> ' + os.Observacoes + '</p>' : '') +
+        (os.ObsConclusao ? '<p><strong>Obs. Conclusao:</strong> ' + os.ObsConclusao + '</p>' : '');
 
-      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-tools"></i> Ordem de Serviço ' + os.Numero;
+      document.getElementById('modalVisualizarTitulo').innerHTML = '<i class="fas fa-tools"></i> Ordem de Servico ' + os.Numero;
       abrirModal('modalVisualizarDoc');
     })
     .getOrdemServicoById(id);
 }
 
-// ==================== PEÇAS/ESTOQUE ====================
+// ==================== PECAS/ESTOQUE ====================
 
 function renderizarPecas() {
-  const tbody = document.querySelector('#tabelaPecas tbody');
+  var tbody = document.querySelector('#tabelaPecas tbody');
   tbody.innerHTML = '';
 
-  pecas.forEach(peca => {
-    const estoqueClasse = peca.EstoqueAtual <= peca.EstoqueMinimo ? 'estoque-baixo' : 'estoque-ok';
+  for (var i = 0; i < pecas.length; i++) {
+    var peca = pecas[i];
+    var estoqueClasse = peca.EstoqueAtual <= peca.EstoqueMinimo ? 'estoque-baixo' : 'estoque-ok';
 
-    tbody.innerHTML += `
-      <tr>
-        <td>${peca.Codigo}</td>
-        <td>${peca.Nome}</td>
-        <td>${peca.Categoria || '-'}</td>
-        <td>R$ ${formatarMoeda(peca.PrecoCusto)}</td>
-        <td>R$ ${formatarMoeda(peca.PrecoVenda)}</td>
-        <td class="${estoqueClasse}">${peca.EstoqueAtual} ${peca.Unidade}</td>
-        <td>${peca.EstoqueMinimo} ${peca.Unidade}</td>
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-primary btn-action" onclick="editarPeca(${peca.ID})" title="Editar">
-              <i class="fas fa-edit"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `;
-  });
+    tbody.innerHTML += '<tr>' +
+      '<td>' + peca.Codigo + '</td>' +
+      '<td>' + peca.Nome + '</td>' +
+      '<td>' + (peca.Categoria || '-') + '</td>' +
+      '<td>R$ ' + formatarMoeda(peca.PrecoCusto) + '</td>' +
+      '<td>R$ ' + formatarMoeda(peca.PrecoVenda) + '</td>' +
+      '<td class="' + estoqueClasse + '">' + peca.EstoqueAtual + ' ' + peca.Unidade + '</td>' +
+      '<td>' + peca.EstoqueMinimo + ' ' + peca.Unidade + '</td>' +
+      '<td>' +
+        '<div class="btn-group">' +
+          '<button class="btn btn-sm btn-primary btn-action" onclick="editarPeca(' + peca.ID + ')" title="Editar">' +
+            '<i class="fas fa-edit"></i>' +
+          '</button>' +
+        '</div>' +
+      '</td>' +
+      '</tr>';
+  }
 }
 
 function filtrarPecas() {
-  const busca = document.getElementById('buscaPeca').value.toLowerCase();
-  const estoqueBaixo = document.getElementById('filtroEstoqueBaixo').checked;
-  const linhas = document.querySelectorAll('#tabelaPecas tbody tr');
+  var busca = document.getElementById('buscaPeca').value.toLowerCase();
+  var estoqueBaixo = document.getElementById('filtroEstoqueBaixo').checked;
+  var linhas = document.querySelectorAll('#tabelaPecas tbody tr');
 
-  linhas.forEach(linha => {
-    const texto = linha.textContent.toLowerCase();
-    const temEstoqueBaixo = linha.querySelector('.estoque-baixo') !== null;
+  for (var i = 0; i < linhas.length; i++) {
+    var texto = linhas[i].textContent.toLowerCase();
+    var temEstoqueBaixo = linhas[i].querySelector('.estoque-baixo') !== null;
 
-    const matchBusca = texto.includes(busca);
-    const matchEstoque = !estoqueBaixo || temEstoqueBaixo;
+    var matchBusca = texto.indexOf(busca) >= 0;
+    var matchEstoque = !estoqueBaixo || temEstoqueBaixo;
 
-    linha.style.display = matchBusca && matchEstoque ? '' : 'none';
-  });
+    linhas[i].style.display = matchBusca && matchEstoque ? '' : 'none';
+  }
 }
 
 function abrirModalPeca() {
   limparFormPeca();
-  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-cog"></i> Nova Peça';
+  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-cog"></i> Nova Peca';
   abrirModal('modalPeca');
 }
 
@@ -1135,7 +1177,13 @@ function limparFormPeca() {
 }
 
 function editarPeca(id) {
-  const peca = pecas.find(p => p.ID == id);
+  var peca = null;
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].ID == id) {
+      peca = pecas[i];
+      break;
+    }
+  }
   if (!peca) return;
 
   document.getElementById('pecaId').value = peca.ID;
@@ -1151,12 +1199,12 @@ function editarPeca(id) {
   document.getElementById('pecaFornecedor').value = peca.Fornecedor || '';
   document.getElementById('pecaLocalizacao').value = peca.Localizacao || '';
 
-  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Peça';
+  document.getElementById('modalPecaTitulo').innerHTML = '<i class="fas fa-edit"></i> Editar Peca';
   abrirModal('modalPeca');
 }
 
 function salvarPecaForm() {
-  const dados = {
+  var dados = {
     ID: document.getElementById('pecaId').value || null,
     Codigo: document.getElementById('pecaCodigo').value,
     Nome: document.getElementById('pecaNome').value,
@@ -1172,7 +1220,7 @@ function salvarPecaForm() {
   };
 
   if (!dados.Codigo || !dados.Nome) {
-    showToast('Preencha os campos obrigatórios!', 'warning');
+    showToast('Preencha os campos obrigatorios!', 'warning');
     return;
   }
 
@@ -1202,41 +1250,48 @@ function abrirModalSelecionarPeca(destino) {
 }
 
 function renderizarPecasModal() {
-  const tbody = document.querySelector('#tabelaPecasModal tbody');
+  var tbody = document.querySelector('#tabelaPecasModal tbody');
   tbody.innerHTML = '';
 
-  pecas.filter(p => p.EstoqueAtual > 0).forEach(peca => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${peca.Codigo}</td>
-        <td>${peca.Nome}</td>
-        <td>${peca.EstoqueAtual}</td>
-        <td>R$ ${formatarMoeda(peca.PrecoVenda)}</td>
-        <td>
-          <button class="btn btn-sm btn-success" onclick="selecionarPeca(${peca.ID})">
-            <i class="fas fa-plus"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  });
+  for (var i = 0; i < pecas.length; i++) {
+    var peca = pecas[i];
+    if (peca.EstoqueAtual > 0) {
+      tbody.innerHTML += '<tr>' +
+        '<td>' + peca.Codigo + '</td>' +
+        '<td>' + peca.Nome + '</td>' +
+        '<td>' + peca.EstoqueAtual + '</td>' +
+        '<td>R$ ' + formatarMoeda(peca.PrecoVenda) + '</td>' +
+        '<td>' +
+          '<button class="btn btn-sm btn-success" onclick="selecionarPeca(' + peca.ID + ')">' +
+            '<i class="fas fa-plus"></i>' +
+          '</button>' +
+        '</td>' +
+        '</tr>';
+    }
+  }
 }
 
 function filtrarPecasModal() {
-  const busca = document.getElementById('buscaPecaModal').value.toLowerCase();
-  const linhas = document.querySelectorAll('#tabelaPecasModal tbody tr');
+  var busca = document.getElementById('buscaPecaModal').value.toLowerCase();
+  var linhas = document.querySelectorAll('#tabelaPecasModal tbody tr');
 
-  linhas.forEach(linha => {
-    const texto = linha.textContent.toLowerCase();
-    linha.style.display = texto.includes(busca) ? '' : 'none';
-  });
+  for (var i = 0; i < linhas.length; i++) {
+    var texto = linhas[i].textContent.toLowerCase();
+    linhas[i].style.display = texto.indexOf(busca) >= 0 ? '' : 'none';
+  }
 }
 
 function selecionarPeca(pecaId) {
-  const peca = pecas.find(p => p.ID == pecaId);
+  var peca = null;
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].ID == pecaId) {
+      peca = pecas[i];
+      break;
+    }
+  }
   if (!peca) return;
 
-  const destino = document.getElementById('selecionarPecaCallback').value;
+  var destino = document.getElementById('selecionarPecaCallback').value;
 
   if (destino === 'orcamento') {
     adicionarLinhaItemOrcamento('Peca', peca.ID, peca.Nome, 1, peca.PrecoVenda);
@@ -1250,43 +1305,48 @@ function selecionarPeca(pecaId) {
 // ==================== EMAIL TEMPLATES ====================
 
 function renderizarEmailTemplates() {
-  const grid = document.getElementById('emailTemplatesGrid');
+  var grid = document.getElementById('emailTemplatesGrid');
   grid.innerHTML = '';
 
-  const tiposNomes = {
-    'ORCAMENTO_CRIADO': 'Orçamento Criado',
-    'ORCAMENTO_APROVADO': 'Orçamento Aprovado',
-    'SERVICO_CONCLUIDO': 'Serviço Concluído',
-    'SERVICO_CANCELADO': 'Serviço Cancelado'
+  var tiposNomes = {
+    'ORCAMENTO_CRIADO': 'Orcamento Criado',
+    'ORCAMENTO_APROVADO': 'Orcamento Aprovado',
+    'SERVICO_CONCLUIDO': 'Servico Concluido',
+    'SERVICO_CANCELADO': 'Servico Cancelado'
   };
 
-  const tiposDescricoes = {
-    'ORCAMENTO_CRIADO': 'Enviado quando um novo orçamento é criado',
-    'ORCAMENTO_APROVADO': 'Enviado quando o cliente aprova o orçamento',
-    'SERVICO_CONCLUIDO': 'Enviado quando a OS é concluída',
-    'SERVICO_CANCELADO': 'Enviado quando orçamento ou OS é cancelado'
+  var tiposDescricoes = {
+    'ORCAMENTO_CRIADO': 'Enviado quando um novo orcamento e criado',
+    'ORCAMENTO_APROVADO': 'Enviado quando o cliente aprova o orcamento',
+    'SERVICO_CONCLUIDO': 'Enviado quando a OS e concluida',
+    'SERVICO_CANCELADO': 'Enviado quando orcamento ou OS e cancelado'
   };
 
-  emailTemplates.forEach(template => {
-    grid.innerHTML += `
-      <div class="email-template-card">
-        <div class="email-template-header">
-          <h4><i class="fas fa-envelope"></i> ${tiposNomes[template.Tipo] || template.Tipo}</h4>
-          <p>${tiposDescricoes[template.Tipo] || ''}</p>
-        </div>
-        <div class="email-template-body">
-          <p class="assunto"><strong>Assunto:</strong> ${template.Assunto}</p>
-          <button class="btn btn-primary btn-block" onclick="editarEmailTemplate('${template.Tipo}')">
-            <i class="fas fa-edit"></i> Editar Template
-          </button>
-        </div>
-      </div>
-    `;
-  });
+  for (var i = 0; i < emailTemplates.length; i++) {
+    var template = emailTemplates[i];
+    grid.innerHTML += '<div class="email-template-card">' +
+      '<div class="email-template-header">' +
+        '<h4><i class="fas fa-envelope"></i> ' + (tiposNomes[template.Tipo] || template.Tipo) + '</h4>' +
+        '<p>' + (tiposDescricoes[template.Tipo] || '') + '</p>' +
+      '</div>' +
+      '<div class="email-template-body">' +
+        '<p class="assunto"><strong>Assunto:</strong> ' + template.Assunto + '</p>' +
+        '<button class="btn btn-primary btn-block" onclick="editarEmailTemplate(\'' + template.Tipo + '\')">' +
+          '<i class="fas fa-edit"></i> Editar Template' +
+        '</button>' +
+      '</div>' +
+      '</div>';
+  }
 }
 
 function editarEmailTemplate(tipo) {
-  const template = emailTemplates.find(t => t.Tipo === tipo);
+  var template = null;
+  for (var i = 0; i < emailTemplates.length; i++) {
+    if (emailTemplates[i].Tipo === tipo) {
+      template = emailTemplates[i];
+      break;
+    }
+  }
   if (!template) return;
 
   document.getElementById('templateTipo').value = template.Tipo;
@@ -1298,11 +1358,11 @@ function editarEmailTemplate(tipo) {
 }
 
 function salvarEmailTemplateForm() {
-  const dados = {
+  var dados = {
     Tipo: document.getElementById('templateTipo').value,
     Assunto: document.getElementById('templateAssunto').value,
     Corpo: document.getElementById('templateCorpo').value,
-    Ativo: document.getElementById('templateAtivo').checked ? 'Sim' : 'Não'
+    Ativo: document.getElementById('templateAtivo').checked ? 'Sim' : 'Nao'
   };
 
   showLoading();
@@ -1324,7 +1384,7 @@ function salvarEmailTemplateForm() {
     .salvarEmailTemplate(dados);
 }
 
-// ==================== CONFIGURAÇÕES ====================
+// ==================== CONFIGURACOES ====================
 
 function carregarConfiguracoes() {
   document.getElementById('configEmpresaNome').value = configuracoes.EMPRESA_NOME || '';
@@ -1340,7 +1400,7 @@ function carregarConfiguracoes() {
 }
 
 function salvarTodasConfiguracoes() {
-  const configs = {
+  var configs = {
     EMPRESA_NOME: document.getElementById('configEmpresaNome').value,
     EMPRESA_CNPJ: document.getElementById('configEmpresaCNPJ').value,
     EMPRESA_TELEFONE: document.getElementById('configEmpresaTelefone').value,
@@ -1372,25 +1432,29 @@ function salvarTodasConfiguracoes() {
 }
 
 function popularSelectFormasPagamento() {
-  const formas = (configuracoes.FORMAS_PAGAMENTO || '').split(',').map(f => f.trim()).filter(Boolean);
-  const selects = ['orcamentoFormaPagamento', 'osFormaPagamento'];
+  var formasStr = configuracoes.FORMAS_PAGAMENTO || '';
+  var formas = formasStr.split(',');
+  var selects = ['orcamentoFormaPagamento', 'osFormaPagamento'];
 
-  selects.forEach(selectId => {
-    const select = document.getElementById(selectId);
-    if (!select) return;
+  for (var s = 0; s < selects.length; s++) {
+    var select = document.getElementById(selects[s]);
+    if (!select) continue;
 
-    const valorAtual = select.value;
+    var valorAtual = select.value;
     select.innerHTML = '<option value="">Selecione...</option>';
 
-    formas.forEach(forma => {
-      select.innerHTML += `<option value="${forma}">${forma}</option>`;
-    });
+    for (var i = 0; i < formas.length; i++) {
+      var forma = formas[i].trim();
+      if (forma) {
+        select.innerHTML += '<option value="' + forma + '">' + forma + '</option>';
+      }
+    }
 
     if (valorAtual) select.value = valorAtual;
-  });
+  }
 }
 
-// ==================== FUNÇÕES UTILITÁRIAS ====================
+// ==================== FUNCOES UTILITARIAS ====================
 
 function formatarMoeda(valor) {
   return parseFloat(valor || 0).toFixed(2).replace('.', ',');
@@ -1402,40 +1466,42 @@ function parseMoeda(valor) {
 
 function formatarDataInput(dataStr) {
   if (!dataStr) return '';
-  const partes = dataStr.split('/');
+  var partes = dataStr.split('/');
   if (partes.length === 3) {
-    return `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+    var dia = partes[0].length < 2 ? '0' + partes[0] : partes[0];
+    var mes = partes[1].length < 2 ? '0' + partes[1] : partes[1];
+    return partes[2] + '-' + mes + '-' + dia;
   }
   return dataStr;
 }
 
 function imprimirDocumento() {
-  const conteudo = document.getElementById('conteudoDocumento').innerHTML;
-  const janela = window.open('', '_blank');
-  janela.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Imprimir Documento</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .table th { background: #f5f5f5; }
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; }
-        .info-item { padding: 10px; background: #f9f9f9; }
-        .info-item label { font-size: 12px; color: #666; display: block; }
-        .info-item span { font-weight: bold; }
-        h2 { color: #2c3e50; }
-        hr { margin: 20px 0; border: none; border-top: 1px solid #ddd; }
-      </style>
-    </head>
-    <body>
-      ${conteudo}
-      <script>window.onload = function() { window.print(); }</script>
-    </body>
-    </html>
-  `);
+  var conteudo = document.getElementById('conteudoDocumento').innerHTML;
+  var janela = window.open('', '_blank');
+  janela.document.write(
+    '<!DOCTYPE html>' +
+    '<html>' +
+    '<head>' +
+      '<title>Imprimir Documento</title>' +
+      '<style>' +
+        'body { font-family: Arial, sans-serif; padding: 20px; }' +
+        '.table { width: 100%; border-collapse: collapse; margin: 15px 0; }' +
+        '.table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }' +
+        '.table th { background: #f5f5f5; }' +
+        '.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; }' +
+        '.info-item { padding: 10px; background: #f9f9f9; }' +
+        '.info-item label { font-size: 12px; color: #666; display: block; }' +
+        '.info-item span { font-weight: bold; }' +
+        'h2 { color: #2c3e50; }' +
+        'hr { margin: 20px 0; border: none; border-top: 1px solid #ddd; }' +
+      '</style>' +
+    '</head>' +
+    '<body>' +
+      conteudo +
+      '<script>window.onload = function() { window.print(); }<\/script>' +
+    '</body>' +
+    '</html>'
+  );
   janela.document.close();
 }
 </script>
